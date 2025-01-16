@@ -1,29 +1,51 @@
 import numpy as np
+from typing import Optional
 from gui import CTFSimGUI
 from models import CTF1D, CTF2D
 
+
 class AppController(CTFSimGUI):
-    def __init__(self, line_points=10000, image_size=400):
+    """
+    A controller class that extends the `CTFSimGUI` main window to manage 
+    the Contrast Transfer Function (CTF) simulation in both 1D and 2D modes.
+    
+    This class sets up frequency data, initializes CTF models, configures default GUI values,
+    and handles user interactions (e.g., slider changes, resets, tab switching).
+    """
+
+    def __init__(self, line_points: int = 10000, image_size: int = 400) -> None:
+        """
+        Initialize the AppController by creating CTF models, setting up the GUI,
+        and establishing event handlers.
+
+        Args:
+            line_points (int, optional): Number of sampling points for the 1D plot. Defaults to 10000.
+            image_size (int, optional): Size of the 2D plot in pixels. Defaults to 400.
+        """
         super().__init__()
+        self.line_points: int = line_points
+        self.image_size: int = image_size
+
         # Initialize frequency data
-        self.line_points = line_points
-        self.image_size = image_size
         self._initialize_data()
         
         # Initialize models
-        self.ctf_1d = CTF1D()
-        self.ctf_2d = CTF2D()
+        self.ctf_1d: CTF1D = CTF1D()
+        self.ctf_2d: CTF2D = CTF2D()
 
         # Initialize GUI
         self.setup_default_gui_values()
 
-        # Inital plots
+        # Initial plots
         self._setup_initial_plots()
         
-        # Event handler
+        # Event handlers
         self._setup_event_handlers()
 
-    def setup_default_gui_values(self):
+    def setup_default_gui_values(self) -> None:
+        """
+        Set default values for all GUI sliders, combo boxes, and checkboxes.
+        """
         self.voltage_slider.set_value(300)
         self.voltage_stability_slider.set_value(3.3333e-8)
         self.electron_source_angle_slider.set_value(1e-4)
@@ -43,57 +65,98 @@ class AppController(CTFSimGUI):
         self.spatial_env_check.setChecked(True)
         self.detector_env_check.setChecked(True)
 
-    def _setup_initial_plots(self):
+    def _setup_initial_plots(self) -> None:
+        """
+        Configure the initial state of the 1D and 2D Matplotlib plots,
+        including titles, limits, lines, and annotations.
+        """
+        # 1D Plot
         self.canvas_1d.axes.set_title("1-D Contrast Transfer Function", fontsize=18, fontweight='bold', pad=20)
         self.canvas_1d.axes.set_xlim(0, 0.5)
         self.canvas_1d.axes.tick_params(axis='both', which='major', labelsize=14)
         self.canvas_1d.axes.set_ylim(-1, 1)
         self.canvas_1d.axes.axhline(y=0, color='grey', linestyle='--', alpha=0.8)
         self.canvas_1d.axes.set_xlabel("Spatial Frequency (1/Å)", fontsize=16)
-        self.line_et = self.canvas_1d.axes.plot(self.freqs_1d, self.ctf_1d.Et(self.freqs_1d), 
-                                                label="Temporal Envelope", 
-                                                linestyle="dashed",
-                                                linewidth=3)
-        self.line_es = self.canvas_1d.axes.plot(self.freqs_1d, self.ctf_1d.Es_1d(self.freqs_1d), 
-                                                label="Spacial Envelope", 
-                                                linestyle="dashed",
-                                                linewidth=3)
-        self.line_ed = self.canvas_1d.axes.plot(self.freqs_1d, self.ctf_1d.Ed(self.freqs_1d), 
-                                                label="Detector Envelope", 
-                                                linestyle="dashed",
-                                                linewidth=3)
-        self.line_te = self.canvas_1d.axes.plot(self.freqs_1d, self.ctf_1d.Etotal_1d(self.freqs_1d), 
-                                                label="Total Envelope",
-                                                linewidth=3)
-        self.line_dc = self.canvas_1d.axes.plot(self.freqs_1d, self.ctf_1d.dampened_ctf_1d(self.freqs_1d), 
-                                                label="Microscope CTF",
-                                                linewidth=3)
+
+        self.line_et = self.canvas_1d.axes.plot(
+            self.freqs_1d,
+            self.ctf_1d.Et(self.freqs_1d),
+            label="Temporal Envelope",
+            linestyle="dashed",
+            linewidth=3
+        )
+        self.line_es = self.canvas_1d.axes.plot(
+            self.freqs_1d,
+            self.ctf_1d.Es_1d(self.freqs_1d),
+            label="Spacial Envelope",
+            linestyle="dashed",
+            linewidth=3
+        )
+        self.line_ed = self.canvas_1d.axes.plot(
+            self.freqs_1d,
+            self.ctf_1d.Ed(self.freqs_1d),
+            label="Detector Envelope",
+            linestyle="dashed",
+            linewidth=3
+        )
+        self.line_te = self.canvas_1d.axes.plot(
+            self.freqs_1d,
+            self.ctf_1d.Etotal_1d(self.freqs_1d),
+            label="Total Envelope",
+            linewidth=3
+        )
+        self.line_dc = self.canvas_1d.axes.plot(
+            self.freqs_1d,
+            self.ctf_1d.dampened_ctf_1d(self.freqs_1d),
+            label="Microscope CTF",
+            linewidth=3
+        )
         self.canvas_1d.axes.legend(fontsize=16)
 
+        # 2D Plot
         self.canvas_2d.axes.set_title("2-D Contrast Transfer Function", fontsize=18, fontweight='bold', pad=20)
         self.image = self.canvas_2d.axes.imshow(self.ctf_2d.dampened_ctf_2d(self.fx, self.fy), cmap='Greys')
+
+        # Annotations for 1D
         self.annotation_1d = self.canvas_1d.axes.annotate(
-            "", xy=(0, 0), xytext=(15, 15),
-            textcoords="offset points", bbox=dict(boxstyle="round", fc="w"),
-            arrowprops=dict(arrowstyle="->"), fontsize=10
+            "",
+            xy=(0, 0),
+            xytext=(15, 15),
+            textcoords="offset points",
+            bbox=dict(boxstyle="round", fc="w"),
+            arrowprops=dict(arrowstyle="->"),
+            fontsize=10
         )
         self.annotation_1d.set_visible(False)
+
+        # Annotations for 2D
         self.annotation_2d = self.canvas_2d.axes.annotate(
-            "", xy=(0, 0), xytext=(15, 15),
-            textcoords="offset points", bbox=dict(boxstyle="round", fc="w"),
-            arrowprops=dict(arrowstyle="->"), fontsize=10
+            "",
+            xy=(0, 0),
+            xytext=(15, 15),
+            textcoords="offset points",
+            bbox=dict(boxstyle="round", fc="w"),
+            arrowprops=dict(arrowstyle="->"),
+            fontsize=10
         )
         self.annotation_2d.set_visible(False)
 
-    def _initialize_data(self):
+    def _initialize_data(self) -> None:
+        """
+        Create 1D and 2D frequency data for plotting the CTF.
+
+        freqs_1d (NDArray): 1D frequency array from 0.001 to 1, for line_points samples.
+        fx, fy (NDArray): 2D grids in the range [-0.5, 0.5], used for the 2D CTF.
+        """
         self.freqs_1d = np.linspace(0.001, 1, self.line_points)
         freq_x = np.linspace(-0.5, 0.5, self.image_size)
         freq_y = np.linspace(-0.5, 0.5, self.image_size)
         self.fx, self.fy = np.meshgrid(freq_x, freq_y, sparse=True)
 
-    def _setup_event_handlers(self):
+    def _setup_event_handlers(self) -> None:
         """
-        Connect signals from PyQt widgets to your update or reset methods.
+        Connect signals from PyQt widgets to appropriate callbacks
+        to update or reset the CTF parameters and refresh the plots.
         """
         self.voltage_slider.valueChanged.connect(lambda value, key="voltage": self.update_ctf(key, value))
         self.voltage_stability_slider.valueChanged.connect(lambda value, key="voltage_stability": self.update_ctf(key, value))
@@ -118,10 +181,14 @@ class AppController(CTFSimGUI):
         self.canvas_1d.mpl_connect("motion_notify_event", self.on_hover)
         self.canvas_2d.mpl_connect("motion_notify_event", self.on_hover)
 
-    # ---------------------------------------------------------------------
-    # Domain-Specific Logic
-    # ---------------------------------------------------------------------
-    def update_ctf(self, key=None, value=None):
+    def update_ctf(self, key: str | None = None, value: float | int | None = None) -> None:
+        """
+        Update the 1D and 2D CTF models based on parameter changes, then refresh the plots.
+
+        Args:
+            key (str | None, optional): The name of the parameter being updated. Defaults to None.
+            value (float | int | None, optional): The new value for the parameter. Defaults to None.
+        """
         if key == "voltage":
             self.ctf_1d.microscope.voltage = value
             self.ctf_2d.microscope.voltage = value
@@ -155,7 +222,7 @@ class AppController(CTFSimGUI):
         elif key == "df_diff":
             self.ctf_2d.df_diff = value
         elif key == "df_az":
-            self.ctf_2d.df_az = value 
+            self.ctf_2d.df_az = value
         elif key == "ac":
             self.ctf_1d.amplitude_contrast = value
             self.ctf_2d.amplitude_contrast = value
@@ -174,8 +241,12 @@ class AppController(CTFSimGUI):
 
         self.update_plot()
 
-    def update_plot(self):
+    def update_plot(self) -> None:
+        """
+        Redraw the 1D or 2D CTF plot depending on which tab is currently selected.
+        """
         if self.plot_tabs.currentIndex() == 0:
+            # Update 1D
             self.line_et[0].set_data(self.freqs_1d, self.ctf_1d.Et(self.freqs_1d))
             self.line_es[0].set_data(self.freqs_1d, self.ctf_1d.Es_1d(self.freqs_1d))
             self.line_ed[0].set_data(self.freqs_1d, self.ctf_1d.Ed(self.freqs_1d))
@@ -184,40 +255,44 @@ class AppController(CTFSimGUI):
             self.canvas_1d.axes.set_xlim(0, self.xlim_slider.get_value())
             self.canvas_1d.draw_idle()
         else:
+            # Update 2D
             self.image.set_data(self.ctf_2d.dampened_ctf_2d(self.fx, self.fy))
             self.canvas_2d.draw_idle()
 
-    def reset_parameters(self):
+    def reset_parameters(self) -> None:
+        """
+        Restore default GUI values and re-compute the CTF plots.
+        """
         self.setup_default_gui_values()
         self.update_ctf()
 
-    def on_hover(self, event):
+    def on_hover(self, event) -> None:
         """
-        Handles the hover event over the Matplotlib canvas.
+        Display coordinates and/or values on hover over the 1D or 2D plot.
+
+        Args:
+            event: A Matplotlib MouseEvent with xdata, ydata, and inaxes.
         """
-        if event.inaxes == self.canvas_1d.axes:  # Check if the mouse is over the plot
-            x, y = event.xdata, event.ydata  # Get data coordinates
+        if event.inaxes == self.canvas_1d.axes:
+            x, y = event.xdata, event.ydata
             if x is not None and y is not None:
-                # Update annotation position and text
                 self.annotation_1d.xy = (x, y)
                 self.annotation_1d.set_text(f"x: {x:.2f}, y: {y:.2f}")
                 self.annotation_1d.set_visible(True)
-                self.canvas_1d.draw_idle()  # Redraw the canvas for updates
+                self.canvas_1d.draw_idle()
         elif event.inaxes == self.canvas_2d.axes:
             x, y = event.xdata, event.ydata
             if x is not None and y is not None:
-                # col, row = int(round(x)), int(round(y))
                 if 0 <= x < self.image_size and 0 <= y < self.image_size:
-                    # Update annotation position and text
                     self.annotation_2d.xy = (x, y)
-                    x_freq = (x - 200)/400.
-                    y_freq = (y - 200)/400.
+                    x_freq = (x - 200) / 400.0
+                    y_freq = (y - 200) / 400.0
                     value = self.ctf_2d.dampened_ctf_2d(np.array([x_freq]), np.array([y_freq]))
                     self.annotation_2d.set_text(f"x: {x_freq:.2f}, y: {y_freq:.2f}, value: {float(value):.2f}")
                     self.annotation_2d.set_visible(True)
-                    self.canvas_2d.draw_idle()  # Redraw the canvas for updates
+                    self.canvas_2d.draw_idle()
         else:
-            self.annotation_1d.set_visible(False)  # Hide annotation if not hovering over the plot
+            self.annotation_1d.set_visible(False)
             self.annotation_2d.set_visible(False)
             self.canvas_1d.draw_idle()
             self.canvas_2d.draw_idle()
