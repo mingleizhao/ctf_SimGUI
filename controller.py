@@ -53,7 +53,7 @@ class AppController(CTFSimGUI):
         self.chromatic_aberr_slider.set_value(3.4)
         self.spherical_aberr_slider.set_value(2.7)
         self.obj_lens_stability_slider.set_value(1.6666e-8)
-        self.detector_combo.setCurrentIndex(1)  # Default to "DDD counting"
+        self.detector_combo.setCurrentIndex(0)  # Default to "DDD counting"
         self.pixel_size_slider.set_value(1.0)
         self.defocus_slider.set_value(1.0)
         self.defocus_diff_slider.set_value(0)
@@ -211,11 +211,11 @@ class AppController(CTFSimGUI):
             self.ctf_1d.microscope.obj_lens_stability = value
             self.ctf_2d.microscope.obj_lens_stability = value
         elif key == "detector":
-            self.ctf_1d.detector.detector_type = value
-            self.ctf_2d.detector.detector_type = value
+            self.ctf_1d.detector = value
+            self.ctf_2d.detector = value
         elif key == "pixel_size":
-            self.ctf_1d.detector.pixel_size = value
-            self.ctf_2d.detector.pixel_size = value
+            self.ctf_1d.pixel_size = value
+            self.ctf_2d.pixel_size = value
         elif key == "df":
             self.ctf_1d.defocus_um = value
             self.ctf_2d.df = value

@@ -1,4 +1,5 @@
 import math
+from enum import Enum
 import numpy as np
 from typing import Callable, List
 from numpy.typing import NDArray
@@ -12,16 +13,43 @@ ELECTRON_MASS: float = 9.10938356e-31     # electron mass in kg
 PLANCK_CONSTANT: float = 6.62607015e-34   # Planck's constant in joule/hz
 
 ###############################################################################
-# Detector parameters
+# Detector Classes and Configurations
 ###############################################################################
-DETECTOR_REGISTERS = {
-    0: "DDD super resolution counting",
-    1: "DDD counting",
-    2: "Film",
-    3: "CCD"
-}
 
+class DetectorDQE:
+    """
+    Provides methods to build polynomial functions for the Detective Quantum Efficiency (DQE) curves.
+    """
+    @staticmethod
+    def build_polynomial_DQE(
+        DQE_X: list[float],
+        DQE_Y: list[float],
+        degree: int | None = None
+    ) -> Callable[[NDArray], NDArray]:
+        """
+        Fit a polynomial to the given (DQE_X, DQE_Y) data and return a function freq->DQE.
+
+        Args:
+            DQE_X (list[float]): X coordinates from a measured DQE curve.
+            DQE_Y (list[float]): Y coordinates from a measured DQE curve.
+            degree (int | None, optional): Polynomial degree. If None, automatically chosen. Defaults to None.
+
+        Returns:
+            Callable[[NDArray], NDArray]: A function that maps frequency to DQE values.
+        """
+        if degree is None:
+            degree = 3 if len(DQE_X) > 3 else 2
+
+        coeffs = np.polyfit(DQE_X, DQE_Y, degree)  # returns highest degree first
+        poly = np.polynomial.Polynomial(coeffs[::-1])  # reorder for np.polynomial
+
+        return lambda x: np.maximum(poly(x), 0)
+    
+
+# Predefined DQE values for various detector types
 # DQE values are drawn from published curves online.
+# If you want to include more detectors, include the new DQE values and build the dqe_func.
+# Also update the DetectorConfigs class below.
 
 # From Gatan
 K3_DQE_X: List[float] = [0, 0.5, 1]
@@ -35,6 +63,30 @@ FILM_DQE_Y: List[float] = [0.37, 0.32, 0.33, 0.22, 0.07]
 CCD_DQE_X: List[float] = [0, 0.25, 0.5, 0.75, 1]
 CCD_DQE_Y: List[float] = [0.37, 0.16, 0.13, 0.1, 0.05]
 
+# Build polynomial DQE func
+DDD_DQE_FUNC = DetectorDQE.build_polynomial_DQE(K3_DQE_X, K3_DQE_Y)
+FILM_DQE_FUNC = DetectorDQE.build_polynomial_DQE(FILM_DQE_X, FILM_DQE_Y)
+CCD_DQE_FUNC = DetectorDQE.build_polynomial_DQE(CCD_DQE_X, CCD_DQE_Y)
+
+class DetectorConfigs(Enum):
+    """
+    Enumerates detector configurations, including their DQE functions and binning factors.
+
+    Attributes:
+        ID_0: DDD super resolution counting (binning factor: 0.5).
+        ID_1: DDD counting (binning factor: 1.0).
+        ID_2: Film (binning factor: 1.0).
+        ID_3: CCD (binning factor: 1.0).
+    """
+    ID_0 = {"name": "DDD counting", "dqe": DDD_DQE_FUNC, "binning_factor": 1.0}
+    ID_1 = {"name": "DDD super resolution counting", "dqe": DDD_DQE_FUNC, "binning_factor": 0.5}
+    ID_2 = {"name": "Film", "dqe": FILM_DQE_FUNC, "binning_factor": 1.0}
+    ID_3 = {"name": "CCD", "dqe": CCD_DQE_FUNC, "binning_factor": 1.0}
+
+
+###############################################################################
+# Microscope Class
+###############################################################################
 
 class Microscope:
     """Represents microscope parameters and calculates relevant electron-optical properties.
@@ -213,124 +265,86 @@ class Microscope:
         )
 
 
-class Detector:
-    """Represents the detector parameters including DQE (Detective Quantum Efficiency).
+###############################################################################
+# CTF Classes
+###############################################################################
+
+class CTFBase:
+    """
+    A base class for CTF calculations with support for callbacks and runtime updates.
 
     Attributes:
-        DETECTOR_CONFIGS (dict[str, tuple[Callable[[NDArray], NDArray], float]]): 
-            Maps detector types to DQE function and binning factor.
-        _pixel_size (float): Pixel size in angstrom.
-        _detector_type (str): The name/type of the detector.
-        dqe_func (Callable[[NDArray], NDArray]): Detective Quantum Efficiency function.
-        binning_factor (float): Binning factor for the detector.
-        nyquist (float): Nyquist frequency for the detector based on pixel size.
-        Ed (Callable[[NDArray], NDArray]): Envelope function for the detector.
-        callbacks (List[Callable[[Detector], None]]): Listeners to notify on updates.
+        _pixel_size (float): Pixel size in angstroms (Å).
+        _amplitude_contrast (float): Amplitude contrast factor.
+        _phase_shift_deg (float): Additional phase shift in degrees.
+        microscope (Microscope): Instance of the Microscope class.
+        detector_config (DetectorConfigs): Detector configuration as a DetectorConfigs Enum.
+        nyquist (float): Nyquist frequency based on the pixel size and detector configuration.
+        _include_temporal_env (bool): Whether to include the temporal envelope in calculations.
+        _include_spatial_env (bool): Whether to include the spatial envelope in calculations.
+        _include_detector_env (bool): Whether to include the detector envelope in calculations.
+        callbacks (List[Callable[[CTFBase], None]]): Callbacks to notify on updates.   
     """
 
-    DETECTOR_CONFIGS: dict = {}
-
-    def __init__(self, pixel_size: float = 1.0, detector_type: str = 'DDD counting') -> None:
+    def __init__(
+        self,
+        pixel_size: float = 1.0,
+        amplitude_contrast: float = 0.1,
+        phase_shift_deg: float = 0.0,
+        microscope_param: Microscope = Microscope(),
+        detector_config: DetectorConfigs = DetectorConfigs.ID_0,
+        include_temporal_env: bool = True,
+        include_spatial_env: bool = True,
+        include_detector_env: bool = True
+    ) -> None:
         """
-        Initializes the Detector parameters and configures the DQE function.
+        Initialize the CTFBase class with default or specified parameters.
 
         Args:
-            pixel_size (float, optional): Pixel size in angstrom. Defaults to 1.0.
-            detector_type (str, optional): The name/type of the detector. Must be in DETECTOR_REGISTERS.
-                Defaults to 'DDD counting'.
-
-        Raises:
-            ValueError: If the specified detector_type is invalid.
+            pixel_size (float, optional): Pixel size in angstroms (Å). Defaults to 1.0.
+            amplitude_contrast (float, optional): Amplitude contrast factor. Defaults to 0.1.
+            phase_shift_deg (float, optional): Additional phase shift in degrees. Defaults to 0.0.
+            microscope_param (Microscope, optional): Microscope instance. Defaults to a new Microscope.
+            detector_config (DetectorConfigs, optional): Detector configuration. Defaults to DetectorConfigs.ID_1.
+            include_temporal_env (bool, optional): Include temporal envelope. Defaults to True.
+            include_spatial_env (bool, optional): Include spatial envelope. Defaults to True.
+            include_detector_env (bool, optional): Include detector envelope. Defaults to True.
         """
-        if detector_type not in DETECTOR_REGISTERS.values():
-            raise ValueError(
-                f"Invalid detector_type: {detector_type}. "
-                f"Allowed: {list(DETECTOR_REGISTERS.values())}"
-            )
-        
         self._pixel_size: float = pixel_size
-        self._detector_type: str = detector_type
+        self._amplitude_contrast: float = amplitude_contrast
+        self._phase_shift_deg: float = phase_shift_deg
+        self.microscope: Microscope = microscope_param
+        self.detector_config: DetectorConfigs = detector_config
+        self._include_temporal_env: bool = include_temporal_env
+        self._include_spatial_env: bool = include_spatial_env
+        self._include_detector_env: bool = include_detector_env
 
-        # Select the DQE function and binning factor
-        self.dqe_func, self.binning_factor = self._select_detector(detector_type)
+        self.callbacks: List[Callable[['CTFBase'], None]] = []
 
-        self.callbacks: List[Callable[['Detector'], None]] = []
+        # Register callbacks from dependent classes
+        self.microscope.add_callback(self._on_dependency_update)
+
         self._recompute_parameters()
-
-    @classmethod
-    def initialize_detector_configs(cls) -> None:
-        """
-        Initialize the DETECTOR_CONFIGS dictionary with polynomial DQE functions for each type.
-        """
-        ddd_dqe_function: Callable[[NDArray], NDArray] = cls.build_polynomial_DQE(K3_DQE_X, K3_DQE_Y)
-        film_dqe_function: Callable[[NDArray], NDArray] = cls.build_polynomial_DQE(FILM_DQE_X, FILM_DQE_Y)
-        ccd_dqe_function: Callable[[NDArray], NDArray] = cls.build_polynomial_DQE(CCD_DQE_X, CCD_DQE_Y)
-        
-        cls.DETECTOR_CONFIGS = {
-            "DDD super resolution counting": (ddd_dqe_function, 0.5),
-            "DDD counting": (ddd_dqe_function, 1.0),
-            "Film": (film_dqe_function, 1.0),
-            "CCD": (ccd_dqe_function, 1.0),
-        }
-
-    def add_callback(self, callback: Callable[['Detector'], None]) -> None:
-        """
-        Register a callback to be notified when the detector parameters change.
-
-        Args:
-            callback (Callable[[Detector], None]): A function that accepts a Detector instance.
-        """
-        self.callbacks.append(callback)
-
-    def _notify_callbacks(self) -> None:
-        """
-        Notify all registered callbacks of an update to the detector parameters.
-        """
-        for callback in self.callbacks:
-            callback(self)
-
-    @property
-    def pixel_size(self) -> float:
-        """float: Pixel size in angstrom."""
-        return self._pixel_size
-
-    @pixel_size.setter
-    def pixel_size(self, value: float) -> None:
-        if value <= 0:
-            raise ValueError("pixel_size must be positive.")
-        self._pixel_size = value
-        self._recompute_parameters()
-        self._notify_callbacks()
-
-    @property
-    def detector_type(self) -> str:
-        """str: The name/type of the detector."""
-        return self._detector_type
-
-    @detector_type.setter
-    def detector_type(self, int_key: int) -> None:
-        """Set the detector type based on int key 
-
-        Args:
-            int_key (int): The key of detector type as defined in DETECTOR_REGISTERS
-
-        Raises:
-            ValueError: If the detector type has not been registered
-        """
-        if int_key not in DETECTOR_REGISTERS:
-            raise ValueError(f"Invalid detector key: {int_key}")
-        if DETECTOR_REGISTERS[int_key] != self._detector_type:
-            self._detector_type = DETECTOR_REGISTERS[int_key]
-            self.dqe_func, self.binning_factor = self._select_detector(self._detector_type)
-            self._recompute_parameters()
-            self._notify_callbacks()
 
     def _recompute_parameters(self) -> None:
         """
-        Recompute detector-related parameters such as the Nyquist frequency and envelope function.
+        Recompute dependent parameters based on current attributes. 
         """
-        self.nyquist: float = 1 / (2.0 * self._pixel_size * self.binning_factor)
-        self.Ed: Callable[[NDArray], NDArray] = self._make_detector_envelope()
+        self.nyquist: float = 1 / (2.0 * self._pixel_size * self.detector_config.value["binning_factor"])
+        self.dqe_func: Callable[[NDArray], NDArray] = self.detector_config.value["dqe"] 
+        
+        if self._include_temporal_env:
+            self.Et: Callable[[NDArray], NDArray] = self.microscope.Et
+        else:
+            self.Et = lambda x: np.ones_like(x)
+        if self._include_detector_env:
+            self.Ed: Callable[[NDArray], NDArray] = self._make_detector_envelope()
+        else:
+            self.Ed = lambda x: np.ones_like(x)
+
+        self.amplitude_contrast_phase: float = math.asin(self.amplitude_contrast)
+        self.phase_shift_rad: float = math.radians(self._phase_shift_deg)
+        self.cs_part: float = (math.pi / 2.0) * self.microscope.cs_ang * self.microscope.wavelength**3
 
     def _make_detector_envelope(self) -> Callable[[NDArray], NDArray]:
         """
@@ -347,124 +361,6 @@ class Detector:
             # Normalize by DQE at zero freq or a reference
             return raw_dqe / self.dqe_func(0) 
         return envelope
-
-    def _select_detector(self, detector_type: str) -> tuple[Callable[[NDArray], NDArray], float]:
-        """
-        Selects the DQE function and binning factor from DETECTOR_CONFIGS.
-
-        Args:
-            detector_type (str): The name/type of the detector.
-
-        Returns:
-            Tuple[Callable[[NDArray], NDArray], float]: DQE function and binning factor.
-        """
-        return Detector.DETECTOR_CONFIGS.get(detector_type, Detector.DETECTOR_CONFIGS["DDD counting"])
-
-    @staticmethod
-    def build_polynomial_DQE(
-        DQE_X: list[float],
-        DQE_Y: list[float],
-        degree: int | None = None
-    ) -> Callable[[NDArray], NDArray]:
-        """
-        Fit a polynomial to the given (DQE_X, DQE_Y) data and return a function freq->DQE.
-
-        Args:
-            DQE_X (list[float]): X coordinates from a measured DQE curve.
-            DQE_Y (list[float]): Y coordinates from a measured DQE curve.
-            degree (int | None, optional): Polynomial degree. If None, automatically chosen. Defaults to None.
-
-        Returns:
-            Callable[[NDArray], NDArray]: A function that maps frequency to DQE values.
-        """
-        if degree is None:
-            degree = 3 if len(DQE_X) > 3 else 2
-
-        coeffs = np.polyfit(DQE_X, DQE_Y, degree)  # returns highest degree first
-        poly = np.polynomial.Polynomial(coeffs[::-1])  # reorder for np.polynomial
-
-        return lambda x: np.maximum(poly(x), 0)
-
-
-# Initialize detector configurations based on current registers
-Detector.initialize_detector_configs()
-
-
-class CTFBase:
-    """
-    A base class for CTF calculations with support for callbacks and runtime updates.
-
-    Attributes:
-        _amplitude_contrast (float): Amplitude contrast factor.
-        _phase_shift_deg (float): Additional phase shift in degrees.
-        microscope (Microscope): Microscope parameters instance.
-        detector (Detector): Detector parameters instance.
-        _include_temporal_env (bool): Whether to include temporal envelope.
-        _include_spatial_env (bool): Whether to include spatial envelope.
-        _include_detector_env (bool): Whether to include detector envelope.
-        callbacks (List[Callable[[CTFBase], None]]): Listeners for updates.
-    """
-
-    def __init__(
-        self,
-        amplitude_contrast: float = 0.1,
-        phase_shift_deg: float = 0.0,
-        microscope_param: Microscope = Microscope(),
-        detector_param: Detector = Detector(),
-        include_temporal_env: bool = True,
-        include_spatial_env: bool = True,
-        include_detector_env: bool = True
-    ) -> None:
-        """
-        Initialize CTFBase and set up dependencies with Microscope and Detector.
-
-        Args:
-            amplitude_contrast (float, optional): Amplitude contrast factor. Defaults to 0.1.
-            phase_shift_deg (float, optional): Additional phase shift in degrees. Defaults to 0.0.
-            microscope_param (Microscope, optional): A Microscope instance. Defaults to a new Microscope().
-            detector_param (Detector, optional): A Detector instance. Defaults to a new Detector().
-            include_temporal_env (bool, optional): Whether to include temporal envelope. Defaults to True.
-            include_spatial_env (bool, optional): Whether to include spatial envelope. Defaults to True.
-            include_detector_env (bool, optional): Whether to include detector envelope. Defaults to True.
-        """
-        self._amplitude_contrast: float = amplitude_contrast
-        self._phase_shift_deg: float = phase_shift_deg
-        self.microscope: Microscope = microscope_param
-        self.detector: Detector = detector_param
-        self._include_temporal_env: bool = include_temporal_env
-        self._include_spatial_env: bool = include_spatial_env
-        self._include_detector_env: bool = include_detector_env
-
-        self.callbacks: List[Callable[['CTFBase'], None]] = []
-
-        # Register callbacks from dependent classes
-        self.microscope.add_callback(self._on_dependency_update)
-        self.detector.add_callback(self._on_dependency_update)
-
-        self._recompute_parameters()
-
-    def _recompute_parameters(self) -> None:
-        """
-        Recompute parameters based on current state. Initializes or updates
-        envelopes for temporal and detector influences.
-        """
-        self.wavelength: float = self.microscope.wavelength
-        self.cs_ang: float = self.microscope.cs_ang
-        self.electron_source_angle: float = self.microscope.electron_source_angle
-
-        if self._include_temporal_env:
-            self.Et: Callable[[NDArray], NDArray] = self.microscope.Et
-        else:
-            self.Et = lambda x: np.ones_like(x)
-
-        if self._include_detector_env:
-            self.Ed: Callable[[NDArray], NDArray] = self.detector.Ed
-        else:
-            self.Ed = lambda x: np.ones_like(x)
-
-        self.amplitude_contrast_phase: float = math.asin(self.amplitude_contrast)
-        self.phase_shift_rad: float = math.radians(self._phase_shift_deg)
-        self.cs_part: float = (math.pi / 2.0) * self.cs_ang * self.wavelength**3
 
     def _on_dependency_update(self, _) -> None:
         """
@@ -485,6 +381,38 @@ class CTFBase:
         """Notify all registered callbacks that parameters have changed."""
         for callback in self.callbacks:
             callback(self)
+
+    @property
+    def pixel_size(self) -> float:
+        """float: Pixel size in Å."""
+        return self._pixel_size
+
+    @pixel_size.setter
+    def pixel_size(self, value: float) -> None:
+        self._pixel_size = value
+        self._recompute_parameters()
+    
+    @property
+    def detector(self) -> str:
+        """str: The configuration of the detector."""
+        return self.detector_config.value["name"]
+
+    @detector.setter
+    def detector(self, value: int) -> None:
+        """Set the detector configure based on id
+
+        Args:
+            value (int): The key of detector configure as defined in DetectorConfigs
+
+        Raises:
+            ValueError: If the detector type has not been registered
+        """
+        id = f"ID_{value}"
+        if DetectorConfigs[id] not in DetectorConfigs:
+            raise ValueError(f"Invalid detector configure key: {value}")
+        if DetectorConfigs[id] != self.detector_config:
+            self.detector_config = DetectorConfigs[id]
+            self._recompute_parameters()
 
     @property
     def amplitude_contrast(self) -> float:
@@ -548,9 +476,9 @@ class CTFBase:
             NDArray: Envelope multiplier at the given frequency.
         """
         return np.exp(
-            - (math.pi * self.electron_source_angle / self.wavelength)**2 *
-            (self.cs_ang * self.wavelength**3 * freq**3
-             + defocus_Å * self.wavelength * freq)**2
+            - (math.pi * self.microscope.electron_source_angle / self.microscope.wavelength)**2 *
+            (self.microscope.cs_ang * self.microscope.wavelength**3 * freq**3
+             + defocus_Å * self.microscope.wavelength * freq)**2
         )
 
 
@@ -562,36 +490,16 @@ class CTF1D(CTFBase):
     def __init__(
         self,
         defocus_um: float = 1.0,
-        amplitude_contrast: float = 0.1,
-        phase_shift_deg: float = 0.0,
-        microscope_param: Microscope = Microscope(),
-        detector_param: Detector = Detector(),
-        include_temporal_env: bool = True,
-        include_spatial_env: bool = True,
-        include_detector_env: bool = True
+        **kwargs
     ) -> None:
         """
         Initialize a 1D CTF with a single defocus parameter.
 
         Args:
             defocus_um (float, optional): Defocus in micrometers. Defaults to 1.0.
-            amplitude_contrast (float, optional): Amplitude contrast factor. Defaults to 0.1.
-            phase_shift_deg (float, optional): Additional phase shift in degrees. Defaults to 0.0.
-            microscope_param (Microscope, optional): Microscope instance. Defaults to a new Microscope.
-            detector_param (Detector, optional): Detector instance. Defaults to a new Detector.
-            include_temporal_env (bool, optional): Whether to include temporal envelope. Defaults to True.
-            include_spatial_env (bool, optional): Whether to include spatial envelope. Defaults to True.
-            include_detector_env (bool, optional): Whether to include detector envelope. Defaults to True.
+            kwargs: Additional keyword arguments passed to the CTFBase constructor.
         """
-        super().__init__(
-            amplitude_contrast,
-            phase_shift_deg,
-            microscope_param,
-            detector_param,
-            include_temporal_env,
-            include_spatial_env,
-            include_detector_env
-        )
+        super().__init__(**kwargs)
         self._defocus_um: float = defocus_um
         self.df_angstrom: float = self._defocus_um * 1e4
         super().add_callback(self._on_dependency_update)
@@ -612,7 +520,7 @@ class CTF1D(CTFBase):
         """
         Create the lambda functions for 1D-CTF, envelopes, and dampened CTF.
         """
-        df_part: float = math.pi * self.df_angstrom * self.wavelength
+        df_part: float = math.pi * self.df_angstrom * self.microscope.wavelength
 
         def phase_function(x: NDArray) -> NDArray:
             return df_part * x**2 - self.cs_part * x**4
@@ -648,13 +556,7 @@ class CTF2D(CTFBase):
     def __init__(
         self,
         defocus_tuple: tuple[float, float, float] = (1.0, 1.0, 0.0),
-        amplitude_contrast: float = 0.1,
-        phase_shift_deg: float = 0.0,
-        microscope_param: Microscope = Microscope(),
-        detector_param: Detector = Detector(),
-        include_temporal_env: bool = True,
-        include_spatial_env: bool = True,
-        include_detector_env: bool = True
+        **kwargs
     ) -> None:
         """
         Initialize a 2D CTF with defocus parameters for astigmatism and angle.
@@ -663,23 +565,9 @@ class CTF2D(CTFBase):
             defocus_tuple (tuple[float, float, float], optional): (du, dv, angle) in (µm, µm, deg).
                 du = major axis defocus, dv = minor axis defocus, angle = azimuthal angle in degrees.
                 Defaults to (1.0, 1.0, 0.0).
-            amplitude_contrast (float, optional): Amplitude contrast factor. Defaults to 0.1.
-            phase_shift_deg (float, optional): Additional phase shift in degrees. Defaults to 0.0.
-            microscope_param (Microscope, optional): Microscope instance. Defaults to a new Microscope.
-            detector_param (Detector, optional): Detector instance. Defaults to a new Detector.
-            include_temporal_env (bool, optional): Whether to include temporal envelope. Defaults to True.
-            include_spatial_env (bool, optional): Whether to include spatial envelope. Defaults to True.
-            include_detector_env (bool, optional): Whether to include detector envelope. Defaults to True.
+            kwargs: Additional keyword arguments passed to the CTFBase constructor.
         """
-        super().__init__(
-            amplitude_contrast,
-            phase_shift_deg,
-            microscope_param,
-            detector_param,
-            include_temporal_env,
-            include_spatial_env,
-            include_detector_env
-        )
+        super().__init__(**kwargs)
         du_um, dv_um, da_deg = defocus_tuple
         self._du_um: float = du_um
         self._dv_um: float = dv_um
@@ -758,7 +646,7 @@ class CTF2D(CTFBase):
             Phase shift as a function of x,y frequencies and the defocus.
             """
             return (
-                math.pi * self.wavelength * defocus(x, y) * freq_sq(x, y)
+                math.pi * self.microscope.wavelength * defocus(x, y) * freq_sq(x, y)
                 - self.cs_part * freq_sq(x, y)**2
             )
 

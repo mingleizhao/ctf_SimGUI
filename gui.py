@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from customized_widgets import SelectionSlider, FloatLogSlider, FloatSlider, SHARED_QGROUPBOX_STYLESHEET
-from models import DETECTOR_REGISTERS
+from models import DetectorConfigs
 
 class MplCanvas(FigureCanvasQTAgg):
     """
@@ -120,7 +120,7 @@ class CTFSimGUI(QMainWindow):
         self.detector_label = QLabel("Detector:")
         self.detector_combo = QComboBox()
         # Populate the combo box with values from DETECTOR_REGISTERS
-        self.detector_combo.addItems([detector for detector in DETECTOR_REGISTERS.values()])
+        self.detector_combo.addItems([detector.value["name"] for detector in DetectorConfigs])
 
         self.pixel_size_slider = FloatSlider("Pixel Size (Å)", min_value=0.2, max_value=5., step=0.1, value_format="{:.1f}" )
         self.defocus_slider = FloatSlider("Defocus (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.2f}")
