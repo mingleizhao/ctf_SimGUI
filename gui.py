@@ -11,29 +11,68 @@ from matplotlib.figure import Figure
 from customized_widgets import SelectionSlider, FloatLogSlider, FloatSlider, SHARED_QGROUPBOX_STYLESHEET
 from models import DetectorConfigs
 
+
 class MplCanvas(FigureCanvasQTAgg):
     """
     A custom Matplotlib canvas widget for embedding plots in a PyQt application.
     """
+
     def __init__(
         self,
         parent: QWidget | None = None,
-        width: float = 5.0,
-        height: float = 4.0,
-        dpi: int = 100
+        width: float = 8.0,
+        height: float = 6.0,
+        dpi: int = 100,
+        subplot_grid: tuple[int, int] = (1, 1), 
+        sharex: bool = False,
+        sharey: bool = False,
+        subplot_args: dict | None = None,
     ) -> None:
-        """Initialize the Matplotlib canvas.
+        """
+        Initialize the Matplotlib canvas with support for custom subplot layouts.
 
         Args:
-            parent (QWidget | None, optional): Optional parent widget for this main window. Defaults to None.
-            width (float, optional): Width of the plot. Defaults to 5.0.
-            height (float, optional): Height of the plot. Defaults to 4.0.
-            dpi (int, optional): Resolution of the plot. Defaults to 100.
+            parent (QWidget | None, optional): Optional parent widget for this canvas. Defaults to None.
+            width (float, optional): Width of the plot in inches. Defaults to 8.0.
+            height (float, optional): Height of the plot in inches. Defaults to 6.0.
+            dpi (int, optional): Resolution of the plot in dots per inch. Defaults to 100.
+            subplot_grid (tuple[int, int], optional): Grid layout for subplots (rows, cols). Defaults to (2, 2).
+            sharex (bool, optional): Whether to share the x-axis among subplots. Defaults to False.
+            sharey (bool, optional): Whether to share the y-axis among subplots. Defaults to False.
+            subplot_args (dict | None, optional): Arguments to customize specific subplots.
+                Example: {1: {"colspan": 2}} for subplot 1 spanning 2 columns.
         """
-        fig = Figure(figsize=(width, height), dpi=dpi)
-        self.axes = fig.add_subplot(111)
-        super().__init__(fig)
+        self.fig = Figure(figsize=(width, height), dpi=dpi)
+        nrows, ncols = subplot_grid
+
+        # Initialize the layout for subplots
+        self.axes = {}
+        if subplot_args is None:
+            subplot_args = {}
+
+        # Use GridSpec for advanced layout
+        grid_spec = self.fig.add_gridspec(nrows=nrows, ncols=ncols)
+
+        # Define subplots
+        if not subplot_args:
+            # Create default subplots when no specific args are provided
+            for idx in range(1, nrows * ncols + 1):
+                row, col = divmod(idx - 1, ncols)  # 1-based index
+                self.axes[idx] = self.fig.add_subplot(grid_spec[row, col])
+        else:
+            # Apply custom subplot arguments
+            for idx, args in subplot_args.items():
+                if "rowspan" in args or "colspan" in args:
+                    self.axes[idx] = self.fig.add_subplot(
+                        grid_spec[args.pop("rowspan"), args.pop("colspan")], **args
+                    )
+                else:
+                    row, col = divmod(idx - 1, ncols)  # 1-based index
+                    self.axes[idx] = self.fig.add_subplot(grid_spec[row, col], **args)
+
+        super().__init__(self.fig)
         self.setParent(parent)
+
 
 class CTFSimGUI(QMainWindow):
     """
@@ -179,6 +218,15 @@ class CTFSimGUI(QMainWindow):
         self.canvas_1d = MplCanvas(self, width=5, height=4)
         # 2D Plot Canvas
         self.canvas_2d = MplCanvas(self, width=5, height=4)
+        # ice thickness Canvas
+        # Define subplot arguments for the layout
+        subplot_args = {
+            1: {"rowspan": slice(0, 1), "colspan": slice(0, 2)},  # Top row spanning two columns
+            2: {"rowspan": slice(1, 2), "colspan": slice(0, 1)},  # Bottom-left
+            3: {"rowspan": slice(1, 2), "colspan": slice(1, 2)},  # Bottom-right
+        }
+        self.canvas_ice = MplCanvas(self, subplot_grid=(2, 2), subplot_args=subplot_args, width=5, height=4)
+        self.ice_thickness_slider = FloatSlider("Ice Thickness (nm)", min_value=1, max_value=1000, step=1, value_format="{:.0f}" )
 
         # Wrap them in QWidget for QTabWidget
         widget_1d = QWidget()
@@ -189,8 +237,14 @@ class CTFSimGUI(QMainWindow):
         layout_2d = QVBoxLayout(widget_2d)
         layout_2d.addWidget(self.canvas_2d)
 
+        widget_ice = QWidget()
+        layout_ice = QVBoxLayout(widget_ice)
+        layout_ice.addWidget(self.canvas_ice)
+        layout_ice.addWidget(self.ice_thickness_slider)
+
         self.plot_tabs.addTab(widget_1d, "1D-CTF")
         self.plot_tabs.addTab(widget_2d, "2D-CTF")
+        self.plot_tabs.addTab(widget_ice, "Ice")
 
 
 def test_gui() -> None:

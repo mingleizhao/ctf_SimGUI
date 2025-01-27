@@ -515,6 +515,7 @@ class CTF1D(CTFBase):
         self._defocus_um = value
         self.df_angstrom = self._defocus_um * 1e4
         self._setup_ctf_1d()
+        self._notify_callbacks()
 
     def _setup_ctf_1d(self) -> None:
         """
@@ -593,6 +594,7 @@ class CTF2D(CTFBase):
         self._dv_um = value - self._df_diff / 2.0
         self._convert_unit_for_defocus()
         self._setup_ctf_2d()
+        self._notify_callbacks()
 
     @property
     def df_diff(self) -> float:
@@ -606,6 +608,7 @@ class CTF2D(CTFBase):
         self._dv_um = self._df - value / 2.0
         self._convert_unit_for_defocus()
         self._setup_ctf_2d()
+        self._notify_callbacks()
 
     @property
     def df_az(self) -> float:
@@ -617,6 +620,7 @@ class CTF2D(CTFBase):
         self._da_deg = value
         self.da_rad = math.radians(value)
         self._setup_ctf_2d()
+        self._notify_callbacks()
 
     def _convert_unit_for_defocus(self) -> None:
         """Convert defocus in µm to angstrom (Å)."""
@@ -679,3 +683,160 @@ class CTF2D(CTFBase):
         """
         super()._on_dependency_update(_)
         self._setup_ctf_2d()
+
+
+class CTFIce1D(CTF1D):
+    """
+    A subclass of CTF1D for simulating the Contrast Transfer Function (CTF) in the presence of ice in 1D.
+
+    Attributes:
+        ice_thickness_ang (float): Ice thickness in nanometers.
+        ctf_ice (Callable[[NDArray], NDArray]): Function for the CTF with ice effects.
+        dampened_ctf_ice (Callable[[NDArray], NDArray]): Function for the dampened CTF with ice effects.
+    """
+
+    def __init__(self, ice_thickness: float = 50.0, **kwargs) -> None:
+        """
+        Initialize the CTFIce1D instance with an optional ice thickness.
+
+        Args:
+            ice_thickness (float, optional): Thickness of the ice layer in nanometers. Defaults to 50.
+            **kwargs: Additional arguments passed to the CTF1D parent class.
+        """
+        super().__init__(**kwargs)
+        self._ice_thickness_nm: float = ice_thickness
+        self.ice_thickness_ang: float = ice_thickness * 10.0  # Convert nm to angstroms
+        super().add_callback(self._on_dependency_update)
+        self._setup_ctf_ice_1d()
+
+    @property
+    def ice_thickness(self) -> float:
+        """float: Ice thickness in nanometers."""
+        return self._ice_thickness_nm
+
+    @ice_thickness.setter
+    def ice_thickness(self, value: float) -> None:
+        """
+        Update the ice thickness and recompute the CTF with ice effects.
+
+        Args:
+            value (float): New ice thickness in nanometers.
+        """
+        self._ice_thickness_nm = value
+        self.ice_thickness_ang = value * 10.0  # Convert nm to angstroms
+        self._setup_ctf_ice_1d()
+
+    def _setup_ctf_ice_1d(self) -> None:
+        """Define the CTF and dampened CTF with ice effects in 1D."""
+        def coeff(x: NDArray) -> NDArray:
+            return math.pi * self.microscope.wavelength * x**2
+
+        def phase(x: NDArray) -> NDArray:
+            return (
+                self.amplitude_contrast_phase +
+                self.phase_shift_rad -
+                self.cs_part * x**4 +
+                self.df_angstrom * coeff(x)
+            )
+
+        self.ctf_ice = lambda x: (
+            -2 / coeff(x) * np.sin(coeff(x) * self.ice_thickness_ang / 2.0)
+            * np.sin(phase(x)) / self.ice_thickness_ang
+        )
+        self.dampened_ctf_ice = lambda x: self.ctf_ice(x) * self.Etotal_1d(x)
+
+    def _on_dependency_update(self, _: CTF1D) -> None:
+        """
+        Automatically recompute the CTF with ice effects when dependencies update.
+
+        Args:
+            _ (CTF1D): The updated CTF1D instance triggering the callback.
+        """
+        super()._on_dependency_update(_)
+        self._setup_ctf_ice_1d()
+
+
+class CTFIce2D(CTF2D):
+    """
+    A subclass of CTF2D for simulating the Contrast Transfer Function (CTF) in the presence of uniform ice in 2D.
+
+    Attributes:
+        ice_thickness_ang (float): Ice thickness in nanometers.
+        ctf_ice (Callable[[NDArray, NDArray], NDArray]): Function for the CTF with ice effects.
+        dampened_ctf_ice (Callable[[NDArray, NDArray], NDArray]): Function for the dampened CTF with ice effects.
+    """
+
+    def __init__(self, ice_thickness: float = 50.0, **kwargs) -> None:
+        """
+        Initialize the CTFIce2D instance with an optional ice thickness.
+
+        Args:
+            ice_thickness (float, optional): Thickness of the ice layer in nanometers. Defaults to 50.
+            **kwargs: Additional arguments passed to the CTF2D parent class.
+        """
+        super().__init__(**kwargs)
+        self._ice_thickness_nm: float = ice_thickness
+        self.ice_thickness_ang: float = ice_thickness * 10.0  # Convert nm to angstroms
+        super().add_callback(self._on_dependency_update)
+        self._setup_ctf_ice_2d()
+
+    @property
+    def ice_thickness(self) -> float:
+        """float: Ice thickness in nanometers."""
+        return self._ice_thickness_nm
+
+    @ice_thickness.setter
+    def ice_thickness(self, value: float) -> None:
+        """
+        Update the ice thickness and recompute the CTF with ice effects.
+
+        Args:
+            value (float): New ice thickness in nanometers.
+        """
+        self._ice_thickness_nm = value
+        self.ice_thickness_ang = value * 10.0  # Convert nm to angstroms
+        self._setup_ctf_ice_2d()
+
+    def _setup_ctf_ice_2d(self) -> None:
+        """Define the CTF and dampened CTF with ice effects in 2D."""
+        delta_df: float = self.du_angstrom - self.dv_angstrom
+
+        def tilt_angle(x: NDArray, y: NDArray) -> NDArray:
+            return np.arctan2(y, x) - self.da_rad
+
+        def defocus(x: NDArray, y: NDArray) -> NDArray:
+            return 0.5 * (
+                self.du_angstrom + self.dv_angstrom
+                + delta_df * np.cos(2.0 * tilt_angle(x, y))
+            )
+
+        def freq_sq(x: NDArray, y: NDArray) -> NDArray:
+            return x**2 + y**2
+
+        def coeff(x: NDArray, y: NDArray) -> NDArray:
+            return math.pi * self.microscope.wavelength * freq_sq(x, y)
+
+        def phase(x: NDArray, y: NDArray) -> NDArray:
+            return (
+                self.amplitude_contrast_phase +
+                self.phase_shift_rad -
+                self.cs_part * freq_sq(x, y)**2 +
+                defocus(x, y) * coeff(x, y)
+            )
+
+        self.ctf_ice = lambda x, y: (
+            -2 / coeff(x, y) / self.ice_thickness_ang
+            * np.sin(coeff(x, y) * self.ice_thickness_ang / 2.0)
+            * np.sin(phase(x, y))
+        )
+        self.dampened_ctf_ice = lambda x, y: self.ctf_ice(x, y) * self.Etotal_2d(x, y)
+
+    def _on_dependency_update(self, _: CTF2D) -> None:
+        """
+        Automatically recompute the CTF with ice effects when dependencies update.
+
+        Args:
+            _ (CTF2D): The updated CTF2D instance triggering the callback.
+        """
+        super()._on_dependency_update(_)
+        self._setup_ctf_ice_2d()

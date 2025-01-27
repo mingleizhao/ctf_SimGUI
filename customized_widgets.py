@@ -2,6 +2,13 @@
 Shared style sheets for QSlider and QGroupBox to maintain a consistent UI theme.
 """
 SHARED_SLIDER_STYLESHEET = """
+LabeledSlider {
+    max-height: 50px;
+    min-height: 40px;
+    max-width: 300px;
+}
+"""
+SHARED_QSLIDER_STYLESHEET = """
 QSlider::handle:horizontal {
     width: 20px; /* Adjust handle size */
     height: 10px;
@@ -72,6 +79,7 @@ class LabeledSlider(QWidget):
 
         self.label_text: str = label_text
         self.value_format: str = value_format
+        self.setStyleSheet(SHARED_SLIDER_STYLESHEET)
 
         # Main layout
         self.layout: QVBoxLayout = QVBoxLayout(self)
@@ -86,7 +94,7 @@ class LabeledSlider(QWidget):
 
         # Slider widget
         self.slider: QSlider = QSlider(orientation, self)
-        self.slider.setStyleSheet(SHARED_SLIDER_STYLESHEET)
+        self.slider.setStyleSheet(SHARED_QSLIDER_STYLESHEET)
         self.slider.setMinimumHeight(20)
         self.layout.addWidget(self.slider)
 

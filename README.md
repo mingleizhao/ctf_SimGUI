@@ -4,6 +4,7 @@ This repository provides a **Contrast Transfer Function (CTF)** implementation f
 ## Screenshots
 ![screenshot1](screenshot1.png)
 ![screenshot2](screenshot2.png)
+![screenshot3](screenshot2.png)
 ## Dependencies
 - **Python** 3.12
 - **NumPy** 2.1.3

@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Optional
 from gui import CTFSimGUI
-from models import CTF1D, CTF2D
+from models import CTF1D, CTF2D, CTFIce1D, CTFIce2D
 
 
 class AppController(CTFSimGUI):
@@ -30,8 +30,10 @@ class AppController(CTFSimGUI):
         self._initialize_data()
         
         # Initialize models
-        self.ctf_1d: CTF1D = CTF1D()
-        self.ctf_2d: CTF2D = CTF2D()
+        self.ctf_1d: CTFIce1D = CTFIce1D()
+        self.ctf_2d: CTFIce2D = CTFIce2D()
+        # self.ice_1d: CTFIce1D = CTFIce1D()
+        # self.ice_2d: CTFIce2D = CTFIce2D()
 
         # Initialize GUI
         self.setup_default_gui_values()
@@ -64,6 +66,7 @@ class AppController(CTFSimGUI):
         self.temporal_env_check.setChecked(True)
         self.spatial_env_check.setChecked(True)
         self.detector_env_check.setChecked(True)
+        self.ice_thickness_slider.set_value(50)
 
     def _setup_initial_plots(self) -> None:
         """
@@ -71,54 +74,106 @@ class AppController(CTFSimGUI):
         including titles, limits, lines, and annotations.
         """
         # 1D Plot
-        self.canvas_1d.axes.set_title("1-D Contrast Transfer Function", fontsize=18, fontweight='bold', pad=20)
-        self.canvas_1d.axes.set_xlim(0, 0.5)
-        self.canvas_1d.axes.tick_params(axis='both', which='major', labelsize=14)
-        self.canvas_1d.axes.set_ylim(-1, 1)
-        self.canvas_1d.axes.axhline(y=0, color='grey', linestyle='--', alpha=0.8)
-        self.canvas_1d.axes.set_xlabel("Spatial Frequency (1/Å)", fontsize=16)
+        self.canvas_1d.axes[1].set_title("1-D Contrast Transfer Function", fontsize=18, fontweight='bold', pad=20)
+        self.canvas_1d.axes[1].set_xlim(0, 0.5)
+        self.canvas_1d.axes[1].tick_params(axis='both', which='major', labelsize=14)
+        self.canvas_1d.axes[1].set_ylim(-1, 1)
+        self.canvas_1d.axes[1].axhline(y=0, color='grey', linestyle='--', alpha=0.8)
+        self.canvas_1d.axes[1].set_xlabel("Spatial Frequency (1/Å)", fontsize=16)
 
-        self.line_et = self.canvas_1d.axes.plot(
+        self.line_et = self.canvas_1d.axes[1].plot(
             self.freqs_1d,
             self.ctf_1d.Et(self.freqs_1d),
             label="Temporal Envelope",
             linestyle="dashed",
             linewidth=3
         )
-        self.line_es = self.canvas_1d.axes.plot(
+        self.line_es = self.canvas_1d.axes[1].plot(
             self.freqs_1d,
             self.ctf_1d.Es_1d(self.freqs_1d),
             label="Spacial Envelope",
             linestyle="dashed",
             linewidth=3
         )
-        self.line_ed = self.canvas_1d.axes.plot(
+        self.line_ed = self.canvas_1d.axes[1].plot(
             self.freqs_1d,
             self.ctf_1d.Ed(self.freqs_1d),
             label="Detector Envelope",
             linestyle="dashed",
             linewidth=3
         )
-        self.line_te = self.canvas_1d.axes.plot(
+        self.line_te = self.canvas_1d.axes[1].plot(
             self.freqs_1d,
             self.ctf_1d.Etotal_1d(self.freqs_1d),
             label="Total Envelope",
             linewidth=3
         )
-        self.line_dc = self.canvas_1d.axes.plot(
+        self.line_dc = self.canvas_1d.axes[1].plot(
             self.freqs_1d,
             self.ctf_1d.dampened_ctf_1d(self.freqs_1d),
             label="Microscope CTF",
             linewidth=3
         )
-        self.canvas_1d.axes.legend(fontsize=16)
+        self.canvas_1d.axes[1].legend(fontsize=16)
 
         # 2D Plot
-        self.canvas_2d.axes.set_title("2-D Contrast Transfer Function", fontsize=18, fontweight='bold', pad=20)
-        self.image = self.canvas_2d.axes.imshow(self.ctf_2d.dampened_ctf_2d(self.fx, self.fy), cmap='Greys')
+        self.canvas_2d.axes[1].set_title("2-D Contrast Transfer Function", fontsize=18, fontweight='bold', pad=20)
+        self.image = self.canvas_2d.axes[1].imshow(self.ctf_2d.dampened_ctf_2d(self.fx, self.fy), cmap='Greys')
 
-        # Annotations for 1D
-        self.annotation_1d = self.canvas_1d.axes.annotate(
+        # Ice Plots
+        self.canvas_ice.fig.subplots_adjust(hspace=0.25, top=0.9, bottom=0.05)
+        self.canvas_ice.axes[1].set_title("CTF in the presence of ice", fontsize=18, fontweight='bold', pad=20)
+        self.canvas_ice.axes[1].set_xlim(0, 0.5)
+        self.canvas_ice.axes[1].tick_params(axis='both', which='major', labelsize=12)
+        self.canvas_ice.axes[1].set_ylim(-1, 1)
+        self.canvas_ice.axes[1].axhline(y=0, color='grey', linestyle='--', alpha=0.8)
+        self.canvas_ice.axes[1].set_xlabel("Spatial Frequency (1/Å)", fontsize=12)
+        self.canvas_ice.axes[1].set_ylabel("Contrast Transfer Function", fontsize=12)
+        self.line_ice_ref = self.canvas_ice.axes[1].plot(
+            self.freqs_1d,
+            self.ctf_1d.dampened_ctf_1d(self.freqs_1d),
+            label="CTF without ice",
+            color="grey",
+            linewidth=0.5,
+        )
+        self.line_ice = self.canvas_ice.axes[1].plot(
+            self.freqs_1d,
+            self.ctf_1d.dampened_ctf_ice(self.freqs_1d),
+            label="CTF with ice",
+            color="purple",
+            linewidth=1,
+        )
+        self.canvas_ice.axes[1].legend(fontsize=12)
+        self.ice_image_ref = self.canvas_ice.axes[2].imshow(
+            self.ctf_2d.dampened_ctf_2d(self.fx, self.fy), 
+            extent=(-1, 1, -1, 1), 
+            cmap='Greys', 
+            vmin=-1, 
+            vmax=1
+        )
+        self.ice_image = self.canvas_ice.axes[3].imshow(
+            self.ctf_2d.dampened_ctf_ice(self.fx, self.fy), 
+            extent=(-1, 1, -1, 1),
+            cmap='Greys', 
+            vmin=-1, 
+            vmax=1
+        )
+        cbar = self.canvas_ice.fig.colorbar(
+            self.ice_image_ref, 
+            ax=self.canvas_ice.axes[3], 
+            orientation='vertical',  
+            shrink=0.8,  # Adjust the size of the color bar
+            pad=0.05  # Adjust the spacing between the color bar and the plot
+        )
+        cbar.ax.set_title('CTF')
+        # cbar.ax.xaxis.set_label_position('top')
+        self.canvas_ice.axes[2].set_xticks(np.linspace(-1, 1, 5))
+        self.canvas_ice.axes[2].set_yticks(np.linspace(-1, 1, 5))
+        self.canvas_ice.axes[3].set_xticks(np.linspace(-1, 1, 5))
+        self.canvas_ice.axes[3].set_yticks(np.linspace(-1, 1, 5))
+
+        # Annotations for 1D CTF
+        self.annotation_1d = self.canvas_1d.axes[1].annotate(
             "",
             xy=(0, 0),
             xytext=(15, 15),
@@ -129,8 +184,8 @@ class AppController(CTFSimGUI):
         )
         self.annotation_1d.set_visible(False)
 
-        # Annotations for 2D
-        self.annotation_2d = self.canvas_2d.axes.annotate(
+        # Annotations for 2D CTF
+        self.annotation_2d = self.canvas_2d.axes[1].annotate(
             "",
             xy=(0, 0),
             xytext=(15, 15),
@@ -140,6 +195,24 @@ class AppController(CTFSimGUI):
             fontsize=10
         )
         self.annotation_2d.set_visible(False)
+
+        self.canvas_ice.axes[2].annotate(
+            "without ice",
+            xy=(-1, 1),
+            xytext=(0, -11),
+            textcoords="offset points",
+            bbox=dict(boxstyle="round", fc="w"),
+            fontsize=10
+        )
+
+        self.canvas_ice.axes[3].annotate(
+            "with ice",
+            xy=(-1, 1),
+            xytext=(0, -11),
+            textcoords="offset points",
+            bbox=dict(boxstyle="round", fc="w"),
+            fontsize=10
+        )
 
     def _initialize_data(self) -> None:
         """
@@ -180,6 +253,7 @@ class AppController(CTFSimGUI):
         self.reset_button.clicked.connect(self.reset_parameters)
         self.canvas_1d.mpl_connect("motion_notify_event", self.on_hover)
         self.canvas_2d.mpl_connect("motion_notify_event", self.on_hover)
+        self.ice_thickness_slider.valueChanged.connect(lambda value, key="ice": self.update_ctf(key, value))
 
     def update_ctf(self, key: str | None = None, value: float | int | None = None) -> None:
         """
@@ -238,6 +312,9 @@ class AppController(CTFSimGUI):
         elif key == "detector_env":
             self.ctf_1d.include_detector_env = value
             self.ctf_2d.include_detector_env = value
+        elif key == "ice":
+            self.ctf_1d.ice_thickness = value
+            self.ctf_2d.ice_thickness = value
 
         self.update_plot()
 
@@ -252,12 +329,20 @@ class AppController(CTFSimGUI):
             self.line_ed[0].set_data(self.freqs_1d, self.ctf_1d.Ed(self.freqs_1d))
             self.line_te[0].set_data(self.freqs_1d, self.ctf_1d.Etotal_1d(self.freqs_1d))
             self.line_dc[0].set_data(self.freqs_1d, self.ctf_1d.dampened_ctf_1d(self.freqs_1d))
-            self.canvas_1d.axes.set_xlim(0, self.xlim_slider.get_value())
+            self.canvas_1d.axes[1].set_xlim(0, self.xlim_slider.get_value())
             self.canvas_1d.draw_idle()
-        else:
+        elif self.plot_tabs.currentIndex() == 1:
             # Update 2D
             self.image.set_data(self.ctf_2d.dampened_ctf_2d(self.fx, self.fy))
             self.canvas_2d.draw_idle()
+        else:
+            self.line_ice_ref[0].set_data(self.freqs_1d, self.ctf_1d.dampened_ctf_1d(self.freqs_1d))
+            self.line_ice[0].set_data(self.freqs_1d, self.ctf_1d.dampened_ctf_ice(self.freqs_1d))
+            self.canvas_ice.axes[1].set_xlim(0, self.xlim_slider.get_value())
+            self.ice_image_ref.set_data(self.ctf_2d.dampened_ctf_2d(self.fx, self.fy))
+            self.ice_image.set_data(self.ctf_2d.dampened_ctf_ice(self.fx, self.fy))
+            self.canvas_2d.draw_idle()
+            self.canvas_ice.draw_idle()
 
     def reset_parameters(self) -> None:
         """
@@ -273,14 +358,14 @@ class AppController(CTFSimGUI):
         Args:
             event: A Matplotlib MouseEvent with xdata, ydata, and inaxes.
         """
-        if event.inaxes == self.canvas_1d.axes:
+        if event.inaxes == self.canvas_1d.axes[1]:
             x, y = event.xdata, event.ydata
             if x is not None and y is not None:
                 self.annotation_1d.xy = (x, y)
                 self.annotation_1d.set_text(f"x: {x:.2f}, y: {y:.2f}")
                 self.annotation_1d.set_visible(True)
                 self.canvas_1d.draw_idle()
-        elif event.inaxes == self.canvas_2d.axes:
+        elif event.inaxes == self.canvas_2d.axes[1]:
             x, y = event.xdata, event.ydata
             if x is not None and y is not None:
                 if 0 <= x < self.image_size and 0 <= y < self.image_size:
