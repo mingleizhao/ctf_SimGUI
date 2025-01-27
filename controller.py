@@ -1,3 +1,4 @@
+import math
 import numpy as np
 from typing import Optional
 from gui import CTFSimGUI
@@ -118,7 +119,29 @@ class AppController(CTFSimGUI):
 
         # 2D Plot
         self.canvas_2d.axes[1].set_title("2-D Contrast Transfer Function", fontsize=18, fontweight='bold', pad=20)
-        self.image = self.canvas_2d.axes[1].imshow(self.ctf_2d.dampened_ctf_2d(self.fx, self.fy), cmap='Greys')
+        self.image = self.canvas_2d.axes[1].imshow(
+            self.ctf_2d.dampened_ctf_2d(self.fx, self.fy), 
+            extent=(-0.5, 0.5, -0.5, 0.5), 
+            cmap='Greys', 
+            vmin=-1, 
+            vmax=1,
+        )
+        self.canvas_2d.axes[1].tick_params(axis='both', labelsize=14)
+        self.canvas_2d.axes[1].set_xticks([-0.5, -0.25, 0, 0.25, 0.5])
+        self.canvas_2d.axes[1].set_yticks([-0.5, -0.25, 0, 0.25, 0.5])
+        self.canvas_2d.axes[1].set_xlabel("Spatial Frequency X (1/Å)", fontsize=14)
+        self.canvas_2d.axes[1].set_ylabel("Spatial Frequency Y (1/Å)", fontsize=14)
+        cbar_2D = self.canvas_ice.fig.colorbar(
+            self.image, 
+            ax=self.canvas_2d.axes[1], 
+            orientation='horizontal',  
+            shrink=0.5,  # Adjust the size of the color bar
+            pad=0.01  # Adjust the spacing between the color bar and the plot
+        )
+        # cbar_2D.ax.set_xlabel('CTF', fontsize=12)
+        cbar_2D.ax.set_xlabel('CTF', fontsize=12) 
+        cbar_2D.ax.tick_params(labelsize=12)
+        cbar_2D.ax.set_position([0.25, 0.12, 0.5, 0.02])
 
         # Ice Plots
         self.canvas_ice.fig.subplots_adjust(hspace=0.25, top=0.9, bottom=0.05)
@@ -146,31 +169,31 @@ class AppController(CTFSimGUI):
         self.canvas_ice.axes[1].legend(fontsize=12)
         self.ice_image_ref = self.canvas_ice.axes[2].imshow(
             self.ctf_2d.dampened_ctf_2d(self.fx, self.fy), 
-            extent=(-1, 1, -1, 1), 
+            extent=(-0.5, 0.5, -0.5, 0.5), 
             cmap='Greys', 
             vmin=-1, 
             vmax=1
         )
         self.ice_image = self.canvas_ice.axes[3].imshow(
             self.ctf_2d.dampened_ctf_ice(self.fx, self.fy), 
-            extent=(-1, 1, -1, 1),
+            extent=(-0.5, 0.5, -0.5, 0.5),
             cmap='Greys', 
             vmin=-1, 
             vmax=1
         )
-        cbar = self.canvas_ice.fig.colorbar(
+        cbar_ice = self.canvas_ice.fig.colorbar(
             self.ice_image_ref, 
             ax=self.canvas_ice.axes[3], 
             orientation='vertical',  
             shrink=0.8,  # Adjust the size of the color bar
             pad=0.05  # Adjust the spacing between the color bar and the plot
         )
-        cbar.ax.set_title('CTF')
+        cbar_ice.ax.set_title('CTF')
         # cbar.ax.xaxis.set_label_position('top')
-        self.canvas_ice.axes[2].set_xticks(np.linspace(-1, 1, 5))
-        self.canvas_ice.axes[2].set_yticks(np.linspace(-1, 1, 5))
-        self.canvas_ice.axes[3].set_xticks(np.linspace(-1, 1, 5))
-        self.canvas_ice.axes[3].set_yticks(np.linspace(-1, 1, 5))
+        self.canvas_ice.axes[2].set_xticks([-0.5, -0.25, 0, 0.25, 0.5])
+        self.canvas_ice.axes[2].set_yticks([-0.5, -0.25, 0, 0.25, 0.5])
+        self.canvas_ice.axes[3].set_xticks([-0.5, -0.25, 0, 0.25, 0.5])
+        self.canvas_ice.axes[3].set_yticks([-0.5, -0.25, 0, 0.25, 0.5])
 
         # Annotations for 1D CTF
         self.annotation_1d = self.canvas_1d.axes[1].annotate(
@@ -198,7 +221,7 @@ class AppController(CTFSimGUI):
 
         self.canvas_ice.axes[2].annotate(
             "without ice",
-            xy=(-1, 1),
+            xy=(-0.5, 0.5),
             xytext=(0, -11),
             textcoords="offset points",
             bbox=dict(boxstyle="round", fc="w"),
@@ -207,7 +230,7 @@ class AppController(CTFSimGUI):
 
         self.canvas_ice.axes[3].annotate(
             "with ice",
-            xy=(-1, 1),
+            xy=(-0.5, 0.5),
             xytext=(0, -11),
             textcoords="offset points",
             bbox=dict(boxstyle="round", fc="w"),
@@ -361,21 +384,22 @@ class AppController(CTFSimGUI):
         if event.inaxes == self.canvas_1d.axes[1]:
             x, y = event.xdata, event.ydata
             if x is not None and y is not None:
-                self.annotation_1d.xy = (x, y)
-                self.annotation_1d.set_text(f"x: {x:.2f}, y: {y:.2f}")
+                res = 1. / x
+                value = self.ctf_1d.dampened_ctf_1d(np.array([x]))
+                self.annotation_1d.xy = (x, value)
+                self.annotation_1d.set_text(f"res: {res:.2f} Å\nctf: {float(value):.4f}")
                 self.annotation_1d.set_visible(True)
                 self.canvas_1d.draw_idle()
         elif event.inaxes == self.canvas_2d.axes[1]:
             x, y = event.xdata, event.ydata
             if x is not None and y is not None:
-                if 0 <= x < self.image_size and 0 <= y < self.image_size:
-                    self.annotation_2d.xy = (x, y)
-                    x_freq = (x - 200) / 400.0
-                    y_freq = (y - 200) / 400.0
-                    value = self.ctf_2d.dampened_ctf_2d(np.array([x_freq]), np.array([y_freq]))
-                    self.annotation_2d.set_text(f"x: {x_freq:.2f}, y: {y_freq:.2f}, value: {float(value):.2f}")
-                    self.annotation_2d.set_visible(True)
-                    self.canvas_2d.draw_idle()
+                res = 1. / math.sqrt(x**2 + y**2)
+                angle = math.degrees(math.atan2(y, x))
+                self.annotation_2d.xy = (x, y)
+                value = self.ctf_2d.dampened_ctf_2d(np.array([x]), np.array([-y]))
+                self.annotation_2d.set_text(f"res: {res:.2f} Å\nangle: {angle:.2f}°\nctf: {float(value):.4f}")
+                self.annotation_2d.set_visible(True)
+                self.canvas_2d.draw_idle()
         else:
             self.annotation_1d.set_visible(False)
             self.annotation_2d.set_visible(False)
