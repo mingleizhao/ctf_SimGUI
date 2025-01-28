@@ -4,7 +4,7 @@ matplotlib.use("Qt5Agg")  # Use the Qt5 backend
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QPushButton, 
     QVBoxLayout, QHBoxLayout, QGroupBox, QTabWidget,
-    QCheckBox, QComboBox
+    QCheckBox, QComboBox, QRadioButton, QButtonGroup
 )
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
@@ -187,16 +187,40 @@ class CTFSimGUI(QMainWindow):
         """
         self.plotting_box = QGroupBox("Plotting Parameters")
 
+        # Create widgets
         self.xlim_slider = FloatSlider("X-axis Limit (Å^-1, 1D)", min_value=0.1, max_value=1.1, step=0.01, value_format="{:.1f}" )
         self.temporal_env_check = QCheckBox("Temporal Envelope")   
         self.spatial_env_check = QCheckBox("Spatial Envelope")
         self.detector_env_check = QCheckBox("Detector Envelope")
-        
+  
+        # Create a horizontal layout for the radio buttons
+        button_layout = QHBoxLayout()
+
+        # Create radio buttons for different CTF formats
+        self.radio_ctf = QRadioButton("CTF")
+        self.radio_abs_ctf = QRadioButton("|CTF|")
+        self.radio_ctf_squared = QRadioButton("CTF²")
+
+        # Add radio buttons to the horizontal layout
+        button_layout.addWidget(self.radio_ctf)
+        button_layout.addWidget(self.radio_abs_ctf)
+        button_layout.addWidget(self.radio_ctf_squared)
+
+        # Group the radio buttons
+        self.radio_button_group = QButtonGroup()
+        self.radio_button_group.addButton(self.radio_ctf)
+        self.radio_button_group.addButton(self.radio_abs_ctf)
+        self.radio_button_group.addButton(self.radio_ctf_squared)
+
+        # Set default selection
+        self.radio_ctf.setChecked(True)
+
         layout = QVBoxLayout()
         layout.addWidget(self.xlim_slider)
         layout.addWidget(self.temporal_env_check)
         layout.addWidget(self.spatial_env_check)
         layout.addWidget(self.detector_env_check)
+        layout.addLayout(button_layout)
 
         self.plotting_box.setLayout(layout)
         self.plotting_box.setStyleSheet(SHARED_QGROUPBOX_STYLESHEET)

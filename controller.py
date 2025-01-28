@@ -2,7 +2,9 @@ import math
 import numpy as np
 from typing import Optional
 from gui import CTFSimGUI
-from models import CTF1D, CTF2D, CTFIce1D, CTFIce2D
+from models import CTFIce1D, CTFIce2D
+from matplotlib.colors import Normalize
+from PyQt5.QtWidgets import QRadioButton
 
 
 class AppController(CTFSimGUI):
@@ -277,6 +279,15 @@ class AppController(CTFSimGUI):
         self.canvas_1d.mpl_connect("motion_notify_event", self.on_hover)
         self.canvas_2d.mpl_connect("motion_notify_event", self.on_hover)
         self.ice_thickness_slider.valueChanged.connect(lambda value, key="ice": self.update_ctf(key, value))
+        self.radio_button_group.buttonClicked.connect(self.update_plot)
+
+    def _setup_ctf_wrap_func(self):
+        if self.radio_button_group.checkedButton() == self.radio_ctf:
+            return lambda x: x
+        elif self.radio_button_group.checkedButton() == self.radio_abs_ctf:
+            return lambda x: np.abs(x)
+        elif self.radio_button_group.checkedButton() == self.radio_ctf_squared:
+            return lambda x: x ** 2
 
     def update_ctf(self, key: str | None = None, value: float | int | None = None) -> None:
         """
@@ -339,32 +350,46 @@ class AppController(CTFSimGUI):
             self.ctf_1d.ice_thickness = value
             self.ctf_2d.ice_thickness = value
 
-        self.update_plot()
+        self.update_plot(self.radio_button_group.checkedButton())
 
-    def update_plot(self) -> None:
+    def update_plot(self, ctf_format_selection: QRadioButton) -> None:
         """
-        Redraw the 1D or 2D CTF plot depending on which tab is currently selected.
+        Redraw the 1D or 2D CTF plot depending on which tab and CTF format are currently selected.
         """
+        wrap_func = self._setup_ctf_wrap_func()
+
+        # Change the ploting parameters based on the format of CTF
+        if ctf_format_selection == self.radio_ctf:
+            ylim = (-1, 1)
+        elif ctf_format_selection == self.radio_abs_ctf:
+            ylim = (0, 1)
+        elif ctf_format_selection == self.radio_ctf_squared:
+            ylim = (0, 1)
+        self.canvas_1d.axes[1].set_ylim(*ylim)
+        self.canvas_ice.axes[1].set_ylim(*ylim)
+
         if self.plot_tabs.currentIndex() == 0:
             # Update 1D
-            self.line_et[0].set_data(self.freqs_1d, self.ctf_1d.Et(self.freqs_1d))
-            self.line_es[0].set_data(self.freqs_1d, self.ctf_1d.Es_1d(self.freqs_1d))
-            self.line_ed[0].set_data(self.freqs_1d, self.ctf_1d.Ed(self.freqs_1d))
-            self.line_te[0].set_data(self.freqs_1d, self.ctf_1d.Etotal_1d(self.freqs_1d))
-            self.line_dc[0].set_data(self.freqs_1d, self.ctf_1d.dampened_ctf_1d(self.freqs_1d))
+            self.line_et[0].set_data(self.freqs_1d, wrap_func(self.ctf_1d.Et(self.freqs_1d)))
+            self.line_es[0].set_data(self.freqs_1d, wrap_func(self.ctf_1d.Es_1d(self.freqs_1d)))
+            self.line_ed[0].set_data(self.freqs_1d, wrap_func(self.ctf_1d.Ed(self.freqs_1d)))
+            self.line_te[0].set_data(self.freqs_1d, wrap_func(self.ctf_1d.Etotal_1d(self.freqs_1d)))
+            self.line_dc[0].set_data(self.freqs_1d, wrap_func(self.ctf_1d.dampened_ctf_1d(self.freqs_1d)))
             self.canvas_1d.axes[1].set_xlim(0, self.xlim_slider.get_value())
             self.canvas_1d.draw_idle()
         elif self.plot_tabs.currentIndex() == 1:
             # Update 2D
-            self.image.set_data(self.ctf_2d.dampened_ctf_2d(self.fx, self.fy))
+            self.image.set_data(wrap_func(self.ctf_2d.dampened_ctf_2d(self.fx, self.fy)))
+            self.image.set_norm(Normalize(vmin=ylim[0], vmax=ylim[1]))
             self.canvas_2d.draw_idle()
         else:
-            self.line_ice_ref[0].set_data(self.freqs_1d, self.ctf_1d.dampened_ctf_1d(self.freqs_1d))
-            self.line_ice[0].set_data(self.freqs_1d, self.ctf_1d.dampened_ctf_ice(self.freqs_1d))
+            self.line_ice_ref[0].set_data(self.freqs_1d, wrap_func(self.ctf_1d.dampened_ctf_1d(self.freqs_1d)))
+            self.line_ice[0].set_data(self.freqs_1d, wrap_func(self.ctf_1d.dampened_ctf_ice(self.freqs_1d)))
             self.canvas_ice.axes[1].set_xlim(0, self.xlim_slider.get_value())
-            self.ice_image_ref.set_data(self.ctf_2d.dampened_ctf_2d(self.fx, self.fy))
-            self.ice_image.set_data(self.ctf_2d.dampened_ctf_ice(self.fx, self.fy))
-            self.canvas_2d.draw_idle()
+            self.ice_image_ref.set_data(wrap_func(self.ctf_2d.dampened_ctf_2d(self.fx, self.fy)))
+            self.ice_image_ref.set_norm(Normalize(vmin=ylim[0], vmax=ylim[1]))
+            self.ice_image.set_data(wrap_func(self.ctf_2d.dampened_ctf_ice(self.fx, self.fy)))
+            self.ice_image.set_norm(Normalize(vmin=ylim[0], vmax=ylim[1]))
             self.canvas_ice.draw_idle()
 
     def reset_parameters(self) -> None:
@@ -381,11 +406,13 @@ class AppController(CTFSimGUI):
         Args:
             event: A Matplotlib MouseEvent with xdata, ydata, and inaxes.
         """
+        wrap_func = self._setup_ctf_wrap_func()
+
         if event.inaxes == self.canvas_1d.axes[1]:
             x, y = event.xdata, event.ydata
             if x is not None and y is not None:
                 res = 1. / x
-                value = self.ctf_1d.dampened_ctf_1d(np.array([x]))
+                value = wrap_func(self.ctf_1d.dampened_ctf_1d(np.array([x])))
                 self.annotation_1d.xy = (x, value)
                 self.annotation_1d.set_text(f"res: {res:.2f} Å\nctf: {float(value):.4f}")
                 self.annotation_1d.set_visible(True)
@@ -396,7 +423,7 @@ class AppController(CTFSimGUI):
                 res = 1. / math.sqrt(x**2 + y**2)
                 angle = math.degrees(math.atan2(y, x))
                 self.annotation_2d.xy = (x, y)
-                value = self.ctf_2d.dampened_ctf_2d(np.array([x]), np.array([-y]))
+                value = wrap_func(self.ctf_2d.dampened_ctf_2d(np.array([x]), np.array([-y])))
                 self.annotation_2d.set_text(f"res: {res:.2f} Å\nangle: {angle:.2f}°\nctf: {float(value):.4f}")
                 self.annotation_2d.set_visible(True)
                 self.canvas_2d.draw_idle()
