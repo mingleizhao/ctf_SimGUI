@@ -163,8 +163,6 @@ class CTFSimGUI(QMainWindow):
 
         self.pixel_size_slider = FloatSlider("Pixel Size (Å)", min_value=0.2, max_value=5., step=0.1, value_format="{:.1f}" )
         self.defocus_slider = FloatSlider("Defocus (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.2f}")
-        self.defocus_diff_slider = FloatSlider("Defocus Diff. (µm, 2D)", min_value=-5, max_value=5, step=0.01, value_format="{:.2f}")
-        self.defocus_az_slider = FloatSlider("Defocus Az. (°, 2D)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}")
         self.amplitude_contrast_slider = FloatSlider("Amplitude Contrast", min_value=0, max_value=1, step=0.01, value_format="{:.2f}")
         self.additional_phase_slider = FloatSlider("Additional phase shift (°)", min_value=0, max_value=180, step=1, value_format="{:.0f}") 
 
@@ -173,8 +171,6 @@ class CTFSimGUI(QMainWindow):
         layout.addWidget(self.detector_combo)
         layout.addWidget(self.pixel_size_slider)
         layout.addWidget(self.defocus_slider)
-        layout.addWidget(self.defocus_diff_slider)
-        layout.addWidget(self.defocus_az_slider)
         layout.addWidget(self.amplitude_contrast_slider)
         layout.addWidget(self.additional_phase_slider)
 
@@ -188,7 +184,6 @@ class CTFSimGUI(QMainWindow):
         self.plotting_box = QGroupBox("Plotting Parameters")
 
         # Create widgets
-        self.xlim_slider = FloatSlider("X-axis Limit (Å^-1, 1D)", min_value=0.1, max_value=1.1, step=0.01, value_format="{:.1f}" )
         self.temporal_env_check = QCheckBox("Temporal Envelope")   
         self.spatial_env_check = QCheckBox("Spatial Envelope")
         self.detector_env_check = QCheckBox("Detector Envelope")
@@ -216,7 +211,6 @@ class CTFSimGUI(QMainWindow):
         self.radio_ctf.setChecked(True)
 
         layout = QVBoxLayout()
-        layout.addWidget(self.xlim_slider)
         layout.addWidget(self.temporal_env_check)
         layout.addWidget(self.spatial_env_check)
         layout.addWidget(self.detector_env_check)
@@ -238,11 +232,33 @@ class CTFSimGUI(QMainWindow):
         """
         self.plot_tabs = QTabWidget()
 
-        # 1D Plot Canvas
+        # 1D Plot Tab
         self.canvas_1d = MplCanvas(self, width=5, height=4)
-        # 2D Plot Canvas
+        self.xlim_slider_1d = FloatSlider("X-axis Limit (Å^-1, 1D)", min_value=0.1, max_value=1.1, step=0.01, value_format="{:.1f}" )
+        
+        layout_1d_sliders = QHBoxLayout()
+        layout_1d_sliders.addWidget(self.xlim_slider_1d)
+
+        widget_1d = QWidget()
+        layout_1d = QVBoxLayout(widget_1d)
+        layout_1d.addWidget(self.canvas_1d)
+        layout_1d.addLayout(layout_1d_sliders)
+
+        # 2D Plot Tab
         self.canvas_2d = MplCanvas(self, width=5, height=4)
-        # ice thickness Canvas
+        self.defocus_diff_slider_2d = FloatSlider("Defocus Diff. (µm, 2D)", min_value=-5, max_value=5, step=0.01, value_format="{:.2f}")
+        self.defocus_az_slider_2d = FloatSlider("Defocus Az. (°, 2D)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}")
+
+        layout_2d_sliders = QHBoxLayout()
+        layout_2d_sliders.addWidget(self.defocus_diff_slider_2d)
+        layout_2d_sliders.addWidget(self.defocus_az_slider_2d)
+
+        widget_2d = QWidget()
+        layout_2d = QVBoxLayout(widget_2d)
+        layout_2d.addWidget(self.canvas_2d)
+        layout_2d.addLayout(layout_2d_sliders)
+        
+        # ice thickness Tab
         # Define subplot arguments for the layout
         subplot_args = {
             1: {"rowspan": slice(0, 1), "colspan": slice(0, 2)},  # Top row spanning two columns
@@ -251,21 +267,22 @@ class CTFSimGUI(QMainWindow):
         }
         self.canvas_ice = MplCanvas(self, subplot_grid=(2, 2), subplot_args=subplot_args, width=5, height=4)
         self.ice_thickness_slider = FloatSlider("Ice Thickness (nm)", min_value=1, max_value=1000, step=1, value_format="{:.0f}" )
-
-        # Wrap them in QWidget for QTabWidget
-        widget_1d = QWidget()
-        layout_1d = QVBoxLayout(widget_1d)
-        layout_1d.addWidget(self.canvas_1d)
-
-        widget_2d = QWidget()
-        layout_2d = QVBoxLayout(widget_2d)
-        layout_2d.addWidget(self.canvas_2d)
+        self.xlim_slider_ice = FloatSlider("X-axis Limit (Å^-1, 1D)", min_value=0.1, max_value=1.1, step=0.01, value_format="{:.1f}" )
+        self.defocus_diff_slider_ice = FloatSlider("Defocus Diff. (µm, 2D)", min_value=-5, max_value=5, step=0.01, value_format="{:.2f}")
+        self.defocus_az_slider_ice = FloatSlider("Defocus Az. (°, 2D)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}")        
+        
+        layout_ice_sliders = QHBoxLayout()
+        layout_ice_sliders.addWidget(self.ice_thickness_slider)
+        layout_ice_sliders.addWidget(self.xlim_slider_ice)
+        layout_ice_sliders.addWidget(self.defocus_diff_slider_ice)
+        layout_ice_sliders.addWidget(self.defocus_az_slider_ice)
 
         widget_ice = QWidget()
         layout_ice = QVBoxLayout(widget_ice)
         layout_ice.addWidget(self.canvas_ice)
-        layout_ice.addWidget(self.ice_thickness_slider)
+        layout_ice.addLayout(layout_ice_sliders)
 
+        # Add widgets to each tab
         self.plot_tabs.addTab(widget_1d, "1D-CTF")
         self.plot_tabs.addTab(widget_2d, "2D-CTF")
         self.plot_tabs.addTab(widget_ice, "Ice")
