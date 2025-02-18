@@ -1,10 +1,11 @@
 import math
 import numpy as np
+import pandas as pd
 from typing import Optional
 from gui import CTFSimGUI
 from models import CTFIce1D, CTFIce2D
 from matplotlib.colors import Normalize
-from PyQt5.QtWidgets import QRadioButton
+from PyQt5.QtWidgets import QRadioButton, QFileDialog
 
 
 class AppController(CTFSimGUI):
@@ -280,8 +281,10 @@ class AppController(CTFSimGUI):
         self.temporal_env_check.stateChanged.connect(lambda value, key="temporal_env": self.update_ctf(key, value))
         self.spatial_env_check.stateChanged.connect(lambda value, key="spatial_env": self.update_ctf(key, value))
         self.detector_env_check.stateChanged.connect(lambda value, key="detector_env": self.update_ctf(key, value))
-        self.plot_tabs.currentChanged.connect(self.update_ctf)
+        self.plot_tabs.currentChanged.connect(lambda value, key="tab_switch": self.update_ctf(key, value))
         self.reset_button.clicked.connect(self.reset_parameters)
+        self.save_img_button.clicked.connect(self.save_plot)
+        self.save_csv_button.clicked.connect(self.save_csv)
         self.canvas_1d.mpl_connect("motion_notify_event", self.on_hover)
         self.canvas_2d.mpl_connect("motion_notify_event", self.on_hover)
         self.ice_thickness_slider.valueChanged.connect(lambda value, key="ice": self.update_ctf(key, value))
@@ -355,6 +358,15 @@ class AppController(CTFSimGUI):
         elif key == "ice":
             self.ctf_1d.ice_thickness = value
             self.ctf_2d.ice_thickness = value
+        elif key == "tab_switch":
+            if value == 0:  # 1D tab
+                pass
+            elif value == 1:  # 2D tab
+                self.defocus_diff_slider_2d.set_value(self.ctf_2d.df_diff)
+                self.defocus_az_slider_2d.set_value(self.ctf_2d.df_az)
+            elif value == 2:  # Ice tab
+                self.defocus_diff_slider_ice.set_value(self.ctf_2d.df_diff)
+                self.defocus_az_slider_ice.set_value(self.ctf_2d.df_az)
 
         self.update_plot(self.radio_button_group.checkedButton())
 
@@ -389,6 +401,7 @@ class AppController(CTFSimGUI):
             self.image.set_norm(Normalize(vmin=ylim[0], vmax=ylim[1]))
             self.canvas_2d.draw_idle()
         else:
+            # Update ice tab plots
             self.line_ice_ref[0].set_data(self.freqs_1d, wrap_func(self.ctf_1d.dampened_ctf_1d(self.freqs_1d)))
             self.line_ice[0].set_data(self.freqs_1d, wrap_func(self.ctf_1d.dampened_ctf_ice(self.freqs_1d)))
             self.canvas_ice.axes[1].set_xlim(0, self.xlim_slider_ice.get_value())
@@ -404,6 +417,86 @@ class AppController(CTFSimGUI):
         """
         self.setup_default_gui_values()
         self.update_ctf()
+
+    def save_plot(self) -> None:
+        """Opens a file dialog and saves the plots in the current tab as an image."""
+        options = QFileDialog.Options()
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save Plot", "", "PNG Files (*.png);;JPEG Files (*.jpg);;PDF Files (*.pdf);;All Files (*)",
+            options=options
+        )
+
+        if not file_path:
+            return  # Exit if no file is selected
+
+        if self.plot_tabs.currentIndex() == 0:
+            self.canvas_1d.fig.savefig(file_path, dpi=300)
+        elif self.plot_tabs.currentIndex() == 1:
+            self.canvas_2d.fig.savefig(file_path, dpi=300)
+        elif self.plot_tabs.currentIndex() == 2:
+            self.canvas_ice.fig.savefig(file_path, dpi=300)
+
+    def save_csv(self) -> None:
+        """Opens a file dialog and saves the plotted data in the current tab as a CSV file."""
+        wrap_func = self._setup_ctf_wrap_func()
+        options = QFileDialog.Options()
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save Data", "", "CSV Files (*.csv);;All Files (*)",
+            options=options
+        )
+
+        if not file_path:
+            return  # Exit if no file is selected
+
+        tab_index = self.plot_tabs.currentIndex()
+
+        if tab_index == 0:  # 1D CTF
+            df = self._generate_ctf_1d_data(wrap_func)
+            df.to_csv(file_path, index=False)
+
+        elif tab_index == 1:  # 2D CTF
+            x_full, y_full = self._get_full_meshgrid()
+            df = self._generate_ctf_2d_data(wrap_func, x_full, y_full, ice=False)
+            df.to_csv(file_path, index=False)
+
+        elif tab_index == 2:  # Ice CTF
+            x_full, y_full = self._get_full_meshgrid()
+            with open(file_path, "w") as f:
+                f.write("# 1D CTF\n")
+                self._generate_ctf_1d_data(wrap_func).to_csv(f, index=False)
+
+                f.write("\n# 2D CTF\n")
+                self._generate_ctf_2d_data(wrap_func, x_full, y_full, ice=True).to_csv(f, index=False)
+
+    def _generate_ctf_1d_data(self, wrap_func) -> pd.DataFrame:
+        """Generates 1D CTF data as a pandas DataFrame."""
+        return pd.DataFrame({
+            "freqs_1d": self.freqs_1d,
+            "ctf": wrap_func(self.ctf_1d.ctf_1d(self.freqs_1d)),
+            "ctf_dampened": wrap_func(self.ctf_1d.dampened_ctf_1d(self.freqs_1d)),
+            "temporal_env": wrap_func(self.ctf_1d.Et(self.freqs_1d)),
+            "spatial_env": wrap_func(self.ctf_1d.Es_1d(self.freqs_1d)),
+            "detector_env": wrap_func(self.ctf_1d.Ed(self.freqs_1d)),
+            "total_env": wrap_func(self.ctf_1d.Etotal_1d(self.freqs_1d)),
+        })
+
+    def _generate_ctf_2d_data(self, wrap_func, x_full, y_full, ice: bool) -> pd.DataFrame:
+        """Generates 2D CTF data as a pandas DataFrame."""
+        return pd.DataFrame({
+            "freqs_x": x_full.flatten(),
+            "freqs_y": y_full.flatten(),
+            "ctf_no_ice": wrap_func(self.ctf_2d.ctf_2d(self.fx, self.fy)).flatten(),
+            "ctf_no_ice_dampened": wrap_func(self.ctf_2d.dampened_ctf_2d(self.fx, self.fy)).flatten(),
+            "ctf_ice": wrap_func(self.ctf_2d.ctf_ice(self.fx, self.fy)).flatten() if ice else None,
+            "ctf_ice_dampened": wrap_func(self.ctf_2d.dampened_ctf_ice(self.fx, self.fy)).flatten() if ice else None,
+            "total_env": wrap_func(self.ctf_2d.Etotal_2d(self.fx, self.fy)).flatten(),
+        })
+
+    def _get_full_meshgrid(self) -> tuple[np.ndarray, np.ndarray]:
+        """Generates a full meshgrid for 2D frequency data."""
+        x_full = np.broadcast_to(self.fx, (self.image_size, self.image_size))
+        y_full = np.broadcast_to(self.fy, (self.image_size, self.image_size))
+        return x_full, y_full
 
     def on_hover(self, event) -> None:
         """

@@ -104,11 +104,11 @@ class CTFSimGUI(QMainWindow):
         self.right_panel = QVBoxLayout()
         self.main_layout.addLayout(self.right_panel, stretch=1)
 
-        # 2) Build each section of the left panel (microscope, imaging, plotting, and reset button.)
+        # 2) Build each section of the left panel (microscope, imaging, plotting, and buttons.)
         self._build_microscope_section()
         self._build_imaging_section()
         self._build_plotting_section()
-        self._build_reset_button()
+        self._build_button_section()
 
         # 3) Create the tabbed plots for the right panel
         self._build_plot_tabs()
@@ -117,7 +117,7 @@ class CTFSimGUI(QMainWindow):
         self.left_panel.addWidget(self.microscope_box)
         self.left_panel.addWidget(self.imaging_box)
         self.left_panel.addWidget(self.plotting_box)
-        self.left_panel.addWidget(self.reset_button)
+        self.left_panel.addLayout(self.button_box)
 
         # 5) Put tabbed plots in the right panel
         self.right_panel.addWidget(self.plot_tabs)
@@ -179,7 +179,7 @@ class CTFSimGUI(QMainWindow):
 
     def _build_plotting_section(self) -> None:
         """
-        Create a QGroupBox for 'Plotting Parameters' (X-axis limit, envelope function toggles, etc.).
+        Create a QGroupBox for 'Plotting Parameters' (envelope function toggles, CTFs, etc.).
         """
         self.plotting_box = QGroupBox("Plotting Parameters")
 
@@ -219,12 +219,22 @@ class CTFSimGUI(QMainWindow):
         self.plotting_box.setLayout(layout)
         self.plotting_box.setStyleSheet(SHARED_QGROUPBOX_STYLESHEET)
 
-    def _build_reset_button(self) -> None:
+    def _build_button_section(self) -> None:
         """
-        Create the Reset button.
+        Create a box for all the push buttons.
         """
-        self.reset_button = QPushButton("Reset")
+        self.button_box = QHBoxLayout()
 
+        # Create buttons
+        self.reset_button = QPushButton("Reset")
+        self.save_img_button = QPushButton("Save Plot")
+        self.save_csv_button = QPushButton("Save CSV")
+        
+        self.button_box.addWidget(self.reset_button)
+        self.button_box.addWidget(self.save_img_button)
+        self.button_box.addWidget(self.save_csv_button)
+
+ 
     def _build_plot_tabs(self) -> None:
         """
         Create a QTabWidget with two tabs for 1D-CTF and 2D-CTF plots.
@@ -234,7 +244,7 @@ class CTFSimGUI(QMainWindow):
 
         # 1D Plot Tab
         self.canvas_1d = MplCanvas(self, width=5, height=4)
-        self.xlim_slider_1d = FloatSlider("X-axis Limit (Å^-1, 1D)", min_value=0.1, max_value=1.1, step=0.01, value_format="{:.1f}" )
+        self.xlim_slider_1d = FloatSlider("X-axis Limit (1/Å)", min_value=0.1, max_value=1.1, step=0.01, value_format="{:.1f}" )
         
         layout_1d_sliders = QHBoxLayout()
         layout_1d_sliders.addWidget(self.xlim_slider_1d)
@@ -246,8 +256,8 @@ class CTFSimGUI(QMainWindow):
 
         # 2D Plot Tab
         self.canvas_2d = MplCanvas(self, width=5, height=4)
-        self.defocus_diff_slider_2d = FloatSlider("Defocus Diff. (µm, 2D)", min_value=-5, max_value=5, step=0.01, value_format="{:.2f}")
-        self.defocus_az_slider_2d = FloatSlider("Defocus Az. (°, 2D)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}")
+        self.defocus_diff_slider_2d = FloatSlider("Defocus Difference (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.2f}")
+        self.defocus_az_slider_2d = FloatSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}")
 
         layout_2d_sliders = QHBoxLayout()
         layout_2d_sliders.addWidget(self.defocus_diff_slider_2d)
@@ -267,9 +277,9 @@ class CTFSimGUI(QMainWindow):
         }
         self.canvas_ice = MplCanvas(self, subplot_grid=(2, 2), subplot_args=subplot_args, width=5, height=4)
         self.ice_thickness_slider = FloatSlider("Ice Thickness (nm)", min_value=1, max_value=1000, step=1, value_format="{:.0f}" )
-        self.xlim_slider_ice = FloatSlider("X-axis Limit (Å^-1, 1D)", min_value=0.1, max_value=1.1, step=0.01, value_format="{:.1f}" )
-        self.defocus_diff_slider_ice = FloatSlider("Defocus Diff. (µm, 2D)", min_value=-5, max_value=5, step=0.01, value_format="{:.2f}")
-        self.defocus_az_slider_ice = FloatSlider("Defocus Az. (°, 2D)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}")        
+        self.xlim_slider_ice = FloatSlider("X-axis Limit (1/Å)", min_value=0.1, max_value=1.1, step=0.01, value_format="{:.1f}" )
+        self.defocus_diff_slider_ice = FloatSlider("Defocus Difference (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.2f}")
+        self.defocus_az_slider_ice = FloatSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}")        
         
         layout_ice_sliders = QHBoxLayout()
         layout_ice_sliders.addWidget(self.ice_thickness_slider)
