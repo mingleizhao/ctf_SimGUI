@@ -10,6 +10,7 @@ This repository provides a **Contrast Transfer Function (CTF)** implementation f
 - **NumPy** 2.1.3
 - **Matplotlib** 3.9.2
 - **PyQt** 5.15.10
+- **Pandas** 2.2.3
 
 ## Usage
 
