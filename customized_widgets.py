@@ -66,9 +66,6 @@ QTabBar::tab:selected {
     background: lightblue;
 }
 
-QTabBar::tab:!selected {
-    background: #323232;
-}
 """
 
 
