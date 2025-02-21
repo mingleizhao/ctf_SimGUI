@@ -3,12 +3,12 @@ import matplotlib
 matplotlib.use("Qt5Agg")  # Use the Qt5 backend
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QPushButton, 
-    QVBoxLayout, QHBoxLayout, QGroupBox, QTabWidget,
-    QCheckBox, QComboBox, QRadioButton, QButtonGroup
+    QVBoxLayout, QHBoxLayout, QGroupBox, QTabWidget, QDoubleSpinBox,
+    QCheckBox, QComboBox, QRadioButton, QButtonGroup, QSizePolicy
 )
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from customized_widgets import SelectionSlider, FloatLogSlider, FloatSlider, SHARED_QGROUPBOX_STYLESHEET
+from customized_widgets import LabeledSlider, SHARED_QGROUPBOX_STYLESHEET, SHARED_QTABWIDGET_STYLESHEET
 from models import DetectorConfigs
 
 
@@ -129,13 +129,13 @@ class CTFSimGUI(QMainWindow):
         """
         self.microscope_box = QGroupBox("Microscope Parameters")
         
-        self.voltage_slider = SelectionSlider("Voltage (KV)", [80, 100, 120, 200, 300, 500, 1000])       
-        self.voltage_stability_slider = FloatLogSlider("Voltage Stability", min_exp=-9, max_exp=-4, step_exp=0.01, value_format="{:.2e}")       
-        self.electron_source_angle_slider = FloatLogSlider("E-Source Angle (rad)", min_exp=-5, max_exp=-2, step_exp=0.01, value_format="{:.1e}")        
-        self.electron_source_spread_slider = FloatSlider("E-Source Spread (eV)", min_value=0, max_value=10, step=0.1, value_format="{:.1f}")
-        self.chromatic_aberr_slider = FloatSlider("Chromatic Aberration (mm)", min_value=0., max_value=10, step=0.1, value_format="{:.1f}")
-        self.spherical_aberr_slider = FloatSlider("Spherical Aberration (mm)", min_value=0., max_value=10, step=0.1, value_format="{:.1f}")
-        self.obj_lens_stability_slider = FloatLogSlider("Objective Lens Stability", min_exp=-9, max_exp=-4, step_exp=0.01, value_format="{:.2e}")
+        self.voltage_slider = LabeledSlider("Voltage (KV)", min_value=80, max_value=1000, step=20, value_format="{:.0f}")       
+        self.voltage_stability_slider = LabeledSlider("Voltage Stability", min_value=1e-9, max_value=1e-4, step=1e-9, value_format="{:.2e}", log_scale=True)       
+        self.electron_source_angle_slider = LabeledSlider("E-Source Angle (rad)", min_value=1e-5, max_value=1e-2, step=1e-5, value_format="{:.1e}", log_scale=True)        
+        self.electron_source_spread_slider = LabeledSlider("E-Source Spread (eV)", min_value=0, max_value=10, step=0.1, value_format="{:.1f}")
+        self.chromatic_aberr_slider = LabeledSlider("Chromatic Aberration (mm)", min_value=0., max_value=10, step=0.1, value_format="{:.1f}")
+        self.spherical_aberr_slider = LabeledSlider("Spherical Aberration (mm)", min_value=0., max_value=10, step=0.1, value_format="{:.1f}")
+        self.obj_lens_stability_slider = LabeledSlider("Obj. Lens Stability", min_value=1e-9, max_value=1e-4, step=1e-9, value_format="{:.2e}", log_scale=True)
 
         layout = QVBoxLayout()
         layout.addWidget(self.voltage_slider)
@@ -161,10 +161,10 @@ class CTFSimGUI(QMainWindow):
         # Populate the combo box with values from DETECTOR_REGISTERS
         self.detector_combo.addItems([detector.value["name"] for detector in DetectorConfigs])
 
-        self.pixel_size_slider = FloatSlider("Pixel Size (Å)", min_value=0.2, max_value=5., step=0.1, value_format="{:.1f}" )
-        self.defocus_slider = FloatSlider("Defocus (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.2f}")
-        self.amplitude_contrast_slider = FloatSlider("Amplitude Contrast", min_value=0, max_value=1, step=0.01, value_format="{:.2f}")
-        self.additional_phase_slider = FloatSlider("Additional phase shift (°)", min_value=0, max_value=180, step=1, value_format="{:.0f}") 
+        self.pixel_size_slider = LabeledSlider("Pixel Size (Å)", min_value=0.2, max_value=5., step=0.1, value_format="{:.3f}" )
+        self.defocus_slider = LabeledSlider("Avg. Defocus (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}")
+        self.amplitude_contrast_slider = LabeledSlider("Amplitude Contrast", min_value=0, max_value=1, step=0.01, value_format="{:.2f}")
+        self.additional_phase_slider = LabeledSlider("Additional phase shift (°)", min_value=0, max_value=180, step=1, value_format="{:.0f}") 
 
         layout = QVBoxLayout()
         layout.addWidget(self.detector_label)
@@ -241,25 +241,39 @@ class CTFSimGUI(QMainWindow):
         Each tab holds its own MplCanvas.
         """
         self.plot_tabs = QTabWidget()
+        self.plot_tabs.setStyleSheet(SHARED_QTABWIDGET_STYLESHEET)
 
         # 1D Plot Tab
         self.canvas_1d = MplCanvas(self, width=5, height=4)
-        self.xlim_slider_1d = FloatSlider("X-axis Limit (1/Å)", min_value=0.1, max_value=1.1, step=0.01, value_format="{:.1f}" )
-        
-        layout_1d_sliders = QHBoxLayout()
-        layout_1d_sliders.addWidget(self.xlim_slider_1d)
+        self.canvas_1d.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Allow canvas to expand fully
 
         widget_1d = QWidget()
         layout_1d = QVBoxLayout(widget_1d)
+
         layout_1d.addWidget(self.canvas_1d)
-        layout_1d.addLayout(layout_1d_sliders)
+        layout_1d.addLayout(self._build_axis_control(
+            "plot_1d",
+            x_min_range=(-0.1, 1), x_min_value=0,
+            x_max_range=(0, 1.1), x_max_value=0.5,
+            y_min_range=(-1.1, 1), y_min_value=-1,
+            y_max_range=(-1, 1.1), y_max_value=1
+        ))
 
         # 2D Plot Tab
         self.canvas_2d = MplCanvas(self, width=5, height=4)
-        self.defocus_diff_slider_2d = FloatSlider("Defocus Difference (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.2f}")
-        self.defocus_az_slider_2d = FloatSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}")
+        self.canvas_2d.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Allow canvas to expand fully
+
+        self.defocus_diff_slider_2d = LabeledSlider("𝛥Defocus (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.2f}")
+        self.defocus_az_slider_2d = LabeledSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}")
 
         layout_2d_sliders = QHBoxLayout()
+        layout_2d_sliders.addLayout(self._build_axis_control(
+            "plot_2d",
+            x_min_range=(-0.5, 0.5), x_min_value=-0.5,
+            x_max_range=(-0.5, 0.5), x_max_value=0.5,
+            y_min_range=(-0.5, 0.5), y_min_value=-1,
+            y_max_range=(-0.5, 0.5), y_max_value=1
+        ))
         layout_2d_sliders.addWidget(self.defocus_diff_slider_2d)
         layout_2d_sliders.addWidget(self.defocus_az_slider_2d)
 
@@ -276,10 +290,10 @@ class CTFSimGUI(QMainWindow):
             3: {"rowspan": slice(1, 2), "colspan": slice(1, 2)},  # Bottom-right
         }
         self.canvas_ice = MplCanvas(self, subplot_grid=(2, 2), subplot_args=subplot_args, width=5, height=4)
-        self.ice_thickness_slider = FloatSlider("Ice Thickness (nm)", min_value=1, max_value=1000, step=1, value_format="{:.0f}" )
-        self.xlim_slider_ice = FloatSlider("X-axis Limit (1/Å)", min_value=0.1, max_value=1.1, step=0.01, value_format="{:.1f}" )
-        self.defocus_diff_slider_ice = FloatSlider("Defocus Difference (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.2f}")
-        self.defocus_az_slider_ice = FloatSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}")        
+        self.ice_thickness_slider = LabeledSlider("Ice Thickness (nm)", min_value=1, max_value=1000, step=1, value_format="{:.0f}" )
+        self.xlim_slider_ice = LabeledSlider("X-axis Limit (Å⁻¹)", min_value=0.1, max_value=1.1, step=0.01, value_format="{:.2f}" )
+        self.defocus_diff_slider_ice = LabeledSlider("𝛥Defocus (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.2f}")
+        self.defocus_az_slider_ice = LabeledSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}")        
         
         layout_ice_sliders = QHBoxLayout()
         layout_ice_sliders.addWidget(self.ice_thickness_slider)
@@ -295,7 +309,84 @@ class CTFSimGUI(QMainWindow):
         # Add widgets to each tab
         self.plot_tabs.addTab(widget_1d, "1D-CTF")
         self.plot_tabs.addTab(widget_2d, "2D-CTF")
-        self.plot_tabs.addTab(widget_ice, "Ice")
+        self.plot_tabs.addTab(widget_ice, "ICE-CTF")
+
+    def _build_axis_control(
+        self,
+        attr_prefix: str,
+        x_min_range: tuple[float, float], x_min_value: float,
+        x_max_range: tuple[float, float], x_max_value: float,
+        y_min_range: tuple[float, float], y_min_value: float,
+        y_max_range: tuple[float, float], y_max_value: float,
+        single_step: float = 0.01, decimals: int = 3, width: int = 70
+    ):
+        """
+        Generalized function to create an axis control layout with configurable QDoubleSpinBox widgets.
+
+        Args:
+            attr_prefix (str): Prefix for instance variables (e.g., "xlim_1d" → creates self.xlim_1d_min, self.xlim_1d_max).
+            x_min_range (tuple): (min, max) range for x_min.
+            x_min_value (float): Default value for x_min.
+            x_max_range (tuple): (min, max) range for x_max.
+            x_max_value (float): Default value for x_max.
+            y_min_range (tuple): (min, max) range for y_min.
+            y_min_value (float): Default value for y_min.
+            y_max_range (tuple): (min, max) range for y_max.
+            y_max_value (float): Default value for y_max.
+            single_step (float, optional): Increment step for all spin boxes. Defaults to 0.005.
+            decimals (int, optional): Number of decimal places. Defaults to 3.
+            width (int, optional): Fixed width for all spin boxes. Defaults to 70.
+
+        Returns:
+            QVBoxLayout: Layout containing X and Y axis controls.
+        """
+
+        def configure_spinbox(spinbox, value, value_range):
+            """Helper function to configure a QDoubleSpinBox."""
+            spinbox.setRange(*value_range)
+            spinbox.setValue(value)
+            spinbox.setSingleStep(single_step)
+            spinbox.setDecimals(decimals)
+            spinbox.setFixedWidth(width)
+
+        # Dynamically create instance variables using the prefix
+        setattr(self, f"{attr_prefix}_x_min", QDoubleSpinBox())
+        setattr(self, f"{attr_prefix}_x_max", QDoubleSpinBox())
+        setattr(self, f"{attr_prefix}_y_min", QDoubleSpinBox())
+        setattr(self, f"{attr_prefix}_y_max", QDoubleSpinBox())
+
+        x_min = getattr(self, f"{attr_prefix}_x_min")
+        x_max = getattr(self, f"{attr_prefix}_x_max")
+        y_min = getattr(self, f"{attr_prefix}_y_min")
+        y_max = getattr(self, f"{attr_prefix}_y_max")
+
+        configure_spinbox(x_min, x_min_value, x_min_range)
+        configure_spinbox(x_max, x_max_value, x_max_range)
+        configure_spinbox(y_min, y_min_value, y_min_range)
+        configure_spinbox(y_max, y_max_value, y_max_range)
+
+        # X-Axis Layout
+        xlim_control = QHBoxLayout()
+        xlim_control.addWidget(QLabel("X-Axis:    Min"))
+        xlim_control.addWidget(x_min)
+        xlim_control.addWidget(QLabel(" Max"))
+        xlim_control.addWidget(x_max)
+        xlim_control.addStretch()
+
+        # Y-Axis Layout
+        ylim_control = QHBoxLayout()
+        ylim_control.addWidget(QLabel("Y-Axis:    Min"))
+        ylim_control.addWidget(y_min)
+        ylim_control.addWidget(QLabel(" Max"))
+        ylim_control.addWidget(y_max)
+        ylim_control.addStretch()
+
+        # Main Layout
+        layout_control = QVBoxLayout()
+        layout_control.addLayout(xlim_control)
+        layout_control.addLayout(ylim_control)
+
+        return layout_control    
 
 
 def test_gui() -> None:

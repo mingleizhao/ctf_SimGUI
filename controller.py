@@ -14,7 +14,7 @@ class AppController(CTFSimGUI):
     the Contrast Transfer Function (CTF) simulation in both 1D and 2D modes.
     
     This class sets up frequency data, initializes CTF models, configures default GUI values,
-    and handles user interactions (e.g., slider changes, resets, tab switching).
+    and handles user interactions (e.g., slider changes, resets, tab switching, saving plots).
     """
 
     def __init__(self, line_points: int = 10000, image_size: int = 400) -> None:
@@ -36,15 +36,16 @@ class AppController(CTFSimGUI):
         # Initialize models
         self.ctf_1d: CTFIce1D = CTFIce1D()
         self.ctf_2d: CTFIce2D = CTFIce2D()
-        # self.ice_1d: CTFIce1D = CTFIce1D()
-        # self.ice_2d: CTFIce2D = CTFIce2D()
 
         # Initialize GUI
         self.setup_default_gui_values()
 
         # Initial plots
         self._setup_initial_plots()
-        
+
+        # Initialize wrap_func
+        self.wrap_func = lambda x: x
+
         # Event handlers
         self._setup_event_handlers()
 
@@ -68,12 +69,19 @@ class AppController(CTFSimGUI):
         self.defocus_az_slider_ice.set_value(0)
         self.amplitude_contrast_slider.set_value(0.1)
         self.additional_phase_slider.set_value(0)
-        self.xlim_slider_1d.set_value(0.5)
         self.xlim_slider_ice.set_value(0.5)
         self.temporal_env_check.setChecked(True)
         self.spatial_env_check.setChecked(True)
         self.detector_env_check.setChecked(True)
         self.ice_thickness_slider.set_value(50)
+        self.plot_1d_x_min.setValue(0)
+        self.plot_1d_x_max.setValue(0.5)
+        self.plot_1d_y_min.setValue(self._setup_default_ylim()[0])
+        self.plot_1d_y_max.setValue(1)
+        self.plot_2d_x_min.setValue(-0.5)
+        self.plot_2d_x_max.setValue(0.5)
+        self.plot_2d_y_min.setValue(-0.5)
+        self.plot_2d_y_max.setValue(0.5)
 
     def _setup_initial_plots(self) -> None:
         """
@@ -86,7 +94,7 @@ class AppController(CTFSimGUI):
         self.canvas_1d.axes[1].tick_params(axis='both', which='major', labelsize=14)
         self.canvas_1d.axes[1].set_ylim(-1, 1)
         self.canvas_1d.axes[1].axhline(y=0, color='grey', linestyle='--', alpha=0.8)
-        self.canvas_1d.axes[1].set_xlabel("Spatial Frequency (1/Å)", fontsize=16)
+        self.canvas_1d.axes[1].set_xlabel("Spatial Frequency (Å⁻¹)", fontsize=16)
 
         self.line_et = self.canvas_1d.axes[1].plot(
             self.freqs_1d,
@@ -135,8 +143,8 @@ class AppController(CTFSimGUI):
         self.canvas_2d.axes[1].tick_params(axis='both', labelsize=14)
         self.canvas_2d.axes[1].set_xticks([-0.5, -0.25, 0, 0.25, 0.5])
         self.canvas_2d.axes[1].set_yticks([-0.5, -0.25, 0, 0.25, 0.5])
-        self.canvas_2d.axes[1].set_xlabel("Spatial Frequency X (1/Å)", fontsize=14)
-        self.canvas_2d.axes[1].set_ylabel("Spatial Frequency Y (1/Å)", fontsize=14)
+        self.canvas_2d.axes[1].set_xlabel("Spatial Frequency X (Å⁻¹)", fontsize=14)
+        self.canvas_2d.axes[1].set_ylabel("Spatial Frequency Y (Å⁻¹)", fontsize=14)
         cbar_2D = self.canvas_ice.fig.colorbar(
             self.image, 
             ax=self.canvas_2d.axes[1], 
@@ -151,12 +159,12 @@ class AppController(CTFSimGUI):
 
         # Ice Plots
         self.canvas_ice.fig.subplots_adjust(hspace=0.25, top=0.9, bottom=0.05)
-        self.canvas_ice.axes[1].set_title("CTF in the presence of ice", fontsize=18, fontweight='bold', pad=20)
+        self.canvas_ice.axes[1].set_title("Impact of Ice on CTF", fontsize=18, fontweight='bold', pad=20)
         self.canvas_ice.axes[1].set_xlim(0, 0.5)
         self.canvas_ice.axes[1].tick_params(axis='both', which='major', labelsize=12)
         self.canvas_ice.axes[1].set_ylim(-1, 1)
         self.canvas_ice.axes[1].axhline(y=0, color='grey', linestyle='--', alpha=0.8)
-        self.canvas_ice.axes[1].set_xlabel("Spatial Frequency (1/Å)", fontsize=12)
+        self.canvas_ice.axes[1].set_xlabel("Spatial Frequency (Å⁻¹)", fontsize=12)
         self.canvas_ice.axes[1].set_ylabel("Contrast Transfer Function", fontsize=12)
         self.line_ice_ref = self.canvas_ice.axes[1].plot(
             self.freqs_1d,
@@ -276,8 +284,15 @@ class AppController(CTFSimGUI):
         self.defocus_az_slider_ice.valueChanged.connect(lambda value, key="df_az": self.update_ctf(key, value))
         self.amplitude_contrast_slider.valueChanged.connect(lambda value, key="ac": self.update_ctf(key, value))
         self.additional_phase_slider.valueChanged.connect(lambda value, key="phase": self.update_ctf(key, value))
-        self.xlim_slider_1d.valueChanged.connect(self.update_ctf)
-        self.xlim_slider_ice.valueChanged.connect(self.update_ctf)
+        self.plot_1d_x_min.valueChanged.connect(self.update_plot_range)
+        self.plot_1d_x_max.valueChanged.connect(self.update_plot_range)
+        self.plot_1d_y_min.valueChanged.connect(self.update_plot_range)
+        self.plot_1d_y_max.valueChanged.connect(self.update_plot_range)
+        self.plot_2d_x_min.valueChanged.connect(self.update_plot_range)
+        self.plot_2d_x_max.valueChanged.connect(self.update_plot_range)
+        self.plot_2d_y_min.valueChanged.connect(self.update_plot_range)
+        self.plot_2d_y_max.valueChanged.connect(self.update_plot_range)
+        self.xlim_slider_ice.valueChanged.connect(self.update_plot_range)
         self.temporal_env_check.stateChanged.connect(lambda value, key="temporal_env": self.update_ctf(key, value))
         self.spatial_env_check.stateChanged.connect(lambda value, key="spatial_env": self.update_ctf(key, value))
         self.detector_env_check.stateChanged.connect(lambda value, key="detector_env": self.update_ctf(key, value))
@@ -288,7 +303,7 @@ class AppController(CTFSimGUI):
         self.canvas_1d.mpl_connect("motion_notify_event", self.on_hover)
         self.canvas_2d.mpl_connect("motion_notify_event", self.on_hover)
         self.ice_thickness_slider.valueChanged.connect(lambda value, key="ice": self.update_ctf(key, value))
-        self.radio_button_group.buttonClicked.connect(self.update_plot)
+        self.radio_button_group.buttonToggled.connect(self.update_wrap_func)
 
     def _setup_ctf_wrap_func(self):
         if self.radio_button_group.checkedButton() == self.radio_ctf:
@@ -297,6 +312,14 @@ class AppController(CTFSimGUI):
             return lambda x: np.abs(x)
         elif self.radio_button_group.checkedButton() == self.radio_ctf_squared:
             return lambda x: x ** 2
+
+    def _setup_default_ylim(self):
+        if self.radio_button_group.checkedButton() == self.radio_ctf:
+            return (-1, 1)
+        elif self.radio_button_group.checkedButton() == self.radio_abs_ctf:
+            return (0, 1)
+        elif self.radio_button_group.checkedButton() == self.radio_ctf_squared:
+            return (0, 1)
 
     def update_ctf(self, key: str | None = None, value: float | int | None = None) -> None:
         """
@@ -359,6 +382,7 @@ class AppController(CTFSimGUI):
             self.ctf_1d.ice_thickness = value
             self.ctf_2d.ice_thickness = value
         elif key == "tab_switch":
+            self.update_plot_range()
             if value == 0:  # 1D tab
                 pass
             elif value == 1:  # 2D tab
@@ -368,54 +392,78 @@ class AppController(CTFSimGUI):
                 self.defocus_diff_slider_ice.set_value(self.ctf_2d.df_diff)
                 self.defocus_az_slider_ice.set_value(self.ctf_2d.df_az)
 
-        self.update_plot(self.radio_button_group.checkedButton())
+        self.update_plot()
 
-    def update_plot(self, ctf_format_selection: QRadioButton) -> None:
+    def update_plot(self) -> None:
         """
         Redraw the 1D or 2D CTF plot depending on which tab and CTF format are currently selected.
         """
-        wrap_func = self._setup_ctf_wrap_func()
-
-        # Change the ploting parameters based on the format of CTF
-        if ctf_format_selection == self.radio_ctf:
-            ylim = (-1, 1)
-        elif ctf_format_selection == self.radio_abs_ctf:
-            ylim = (0, 1)
-        elif ctf_format_selection == self.radio_ctf_squared:
-            ylim = (0, 1)
-        self.canvas_1d.axes[1].set_ylim(*ylim)
-        self.canvas_ice.axes[1].set_ylim(*ylim)
-
         if self.plot_tabs.currentIndex() == 0:
             # Update 1D
-            self.line_et[0].set_data(self.freqs_1d, wrap_func(self.ctf_1d.Et(self.freqs_1d)))
-            self.line_es[0].set_data(self.freqs_1d, wrap_func(self.ctf_1d.Es_1d(self.freqs_1d)))
-            self.line_ed[0].set_data(self.freqs_1d, wrap_func(self.ctf_1d.Ed(self.freqs_1d)))
-            self.line_te[0].set_data(self.freqs_1d, wrap_func(self.ctf_1d.Etotal_1d(self.freqs_1d)))
-            self.line_dc[0].set_data(self.freqs_1d, wrap_func(self.ctf_1d.dampened_ctf_1d(self.freqs_1d)))
-            self.canvas_1d.axes[1].set_xlim(0, self.xlim_slider_1d.get_value())
+            self.line_et[0].set_data(self.freqs_1d, self.wrap_func(self.ctf_1d.Et(self.freqs_1d)))
+            self.line_es[0].set_data(self.freqs_1d, self.wrap_func(self.ctf_1d.Es_1d(self.freqs_1d)))
+            self.line_ed[0].set_data(self.freqs_1d, self.wrap_func(self.ctf_1d.Ed(self.freqs_1d)))
+            self.line_te[0].set_data(self.freqs_1d, self.wrap_func(self.ctf_1d.Etotal_1d(self.freqs_1d)))
+            self.line_dc[0].set_data(self.freqs_1d, self.wrap_func(self.ctf_1d.dampened_ctf_1d(self.freqs_1d)))
             self.canvas_1d.draw_idle()
         elif self.plot_tabs.currentIndex() == 1:
             # Update 2D
-            self.image.set_data(wrap_func(self.ctf_2d.dampened_ctf_2d(self.fx, self.fy)))
-            self.image.set_norm(Normalize(vmin=ylim[0], vmax=ylim[1]))
+            self.image.set_data(self.wrap_func(self.ctf_2d.dampened_ctf_2d(self.fx, self.fy)))
             self.canvas_2d.draw_idle()
-        else:
+        elif self.plot_tabs.currentIndex() == 2:
             # Update ice tab plots
-            self.line_ice_ref[0].set_data(self.freqs_1d, wrap_func(self.ctf_1d.dampened_ctf_1d(self.freqs_1d)))
-            self.line_ice[0].set_data(self.freqs_1d, wrap_func(self.ctf_1d.dampened_ctf_ice(self.freqs_1d)))
+            self.line_ice_ref[0].set_data(self.freqs_1d, self.wrap_func(self.ctf_1d.dampened_ctf_1d(self.freqs_1d)))
+            self.line_ice[0].set_data(self.freqs_1d, self.wrap_func(self.ctf_1d.dampened_ctf_ice(self.freqs_1d)))
             self.canvas_ice.axes[1].set_xlim(0, self.xlim_slider_ice.get_value())
-            self.ice_image_ref.set_data(wrap_func(self.ctf_2d.dampened_ctf_2d(self.fx, self.fy)))
-            self.ice_image_ref.set_norm(Normalize(vmin=ylim[0], vmax=ylim[1]))
-            self.ice_image.set_data(wrap_func(self.ctf_2d.dampened_ctf_ice(self.fx, self.fy)))
-            self.ice_image.set_norm(Normalize(vmin=ylim[0], vmax=ylim[1]))
+            self.ice_image_ref.set_data(self.wrap_func(self.ctf_2d.dampened_ctf_2d(self.fx, self.fy)))
+            self.ice_image.set_data(self.wrap_func(self.ctf_2d.dampened_ctf_ice(self.fx, self.fy)))
             self.canvas_ice.draw_idle()
+
+    def update_plot_range(self) -> None:
+        """
+        Update X Y limits of the plot without setting data.
+        """
+        # self.canvas_ice.axes[1].set_ylim(-1, 1)
+        
+        if self.plot_tabs.currentIndex() == 0:
+            self.canvas_1d.axes[1].set_xlim(self.plot_1d_x_min.value(), self.plot_1d_x_max.value())
+            self.canvas_1d.axes[1].set_ylim(self.plot_1d_y_min.value(), self.plot_1d_y_max.value())
+            self.canvas_1d.draw_idle()
+        elif self.plot_tabs.currentIndex() == 1:
+            self.canvas_2d.axes[1].set_xlim(self.plot_2d_x_min.value(), self.plot_2d_x_max.value())
+            self.canvas_2d.axes[1].set_ylim(self.plot_2d_y_min.value(), self.plot_2d_y_max.value())
+            self.canvas_2d.draw_idle()
+        elif self.plot_tabs.currentIndex() == 2:
+            self.canvas_ice.axes[1].set_xlim(0, self.xlim_slider_ice.get_value())
+            self.canvas_ice.draw_idle()
+
+    def update_wrap_func(self) -> None:
+        """
+        Update wraper function without setting data.
+        """
+        self.wrap_func = self._setup_ctf_wrap_func()
+
+        ylim = self._setup_default_ylim()
+
+        # Rescale 1D plots
+        self.canvas_1d.axes[1].set_ylim(*ylim)
+        self.plot_1d_y_min.setValue(ylim[0])
+        self.plot_1d_y_max.setValue(ylim[1])
+        self.canvas_ice.axes[1].set_ylim(*ylim)
+        
+        # Renormalize the 2D images
+        self.image.set_norm(Normalize(vmin=ylim[0], vmax=ylim[1]))
+        self.ice_image_ref.set_norm(Normalize(vmin=ylim[0], vmax=ylim[1]))
+        self.ice_image.set_norm(Normalize(vmin=ylim[0], vmax=ylim[1]))
+        
+        self.update_plot()
 
     def reset_parameters(self) -> None:
         """
         Restore default GUI values and re-compute the CTF plots.
         """
         self.setup_default_gui_values()
+        self.update_plot_range()
         self.update_ctf()
 
     def save_plot(self) -> None:
