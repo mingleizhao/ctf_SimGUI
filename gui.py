@@ -8,8 +8,9 @@ from PyQt5.QtWidgets import (
 )
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from customized_widgets import LabeledSlider, SHARED_QGROUPBOX_STYLESHEET, SHARED_QTABWIDGET_STYLESHEET
+from customized_widgets import LabeledSlider
 from models import DetectorConfigs
+from styles import SHARED_QGROUPBOX_STYLESHEET, SHARED_QTABWIDGET_STYLESHEET
 
 
 class MplCanvas(FigureCanvasQTAgg):
@@ -263,7 +264,7 @@ class CTFSimGUI(QMainWindow):
         self.canvas_2d = MplCanvas(self, width=5, height=4)
         self.canvas_2d.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Allow canvas to expand fully
 
-        self.defocus_diff_slider_2d = LabeledSlider("𝛥Defocus (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.2f}")
+        self.defocus_diff_slider_2d = LabeledSlider("𝛥Defocus (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}")
         self.defocus_az_slider_2d = LabeledSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}")
 
         layout_2d_sliders = QHBoxLayout()
@@ -292,7 +293,7 @@ class CTFSimGUI(QMainWindow):
         self.canvas_ice = MplCanvas(self, subplot_grid=(2, 2), subplot_args=subplot_args, width=5, height=4)
         self.ice_thickness_slider = LabeledSlider("Ice Thickness (nm)", min_value=1, max_value=1000, step=1, value_format="{:.0f}" )
         self.xlim_slider_ice = LabeledSlider("X-axis Limit (Å⁻¹)", min_value=0.1, max_value=1.1, step=0.01, value_format="{:.2f}" )
-        self.defocus_diff_slider_ice = LabeledSlider("𝛥Defocus (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.2f}")
+        self.defocus_diff_slider_ice = LabeledSlider("𝛥Defocus (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}")
         self.defocus_az_slider_ice = LabeledSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}")        
         
         layout_ice_sliders = QHBoxLayout()
@@ -365,19 +366,34 @@ class CTFSimGUI(QMainWindow):
         configure_spinbox(y_min, y_min_value, y_min_range)
         configure_spinbox(y_max, y_max_value, y_max_range)
 
+        # Create labels
+        x_label_min = QLabel("X-Axis:    Min")
+        x_label_min.setMinimumHeight(23)
+        x_label_max = QLabel(" Max")
+        y_label_min = QLabel("Y-Axis:    Min")
+        y_label_min.setMinimumHeight(23)
+        y_label_max = QLabel(" Max")
+
+        # Find the widest label
+        max_width = max(x_label_min.sizeHint().width(), y_label_min.sizeHint().width())
+
+        # Apply the same width to all labels
+        x_label_min.setFixedWidth(max_width)
+        y_label_min.setFixedWidth(max_width)
+
         # X-Axis Layout
         xlim_control = QHBoxLayout()
-        xlim_control.addWidget(QLabel("X-Axis:    Min"))
+        xlim_control.addWidget(x_label_min)
         xlim_control.addWidget(x_min)
-        xlim_control.addWidget(QLabel(" Max"))
+        xlim_control.addWidget(x_label_max)
         xlim_control.addWidget(x_max)
         xlim_control.addStretch()
 
         # Y-Axis Layout
         ylim_control = QHBoxLayout()
-        ylim_control.addWidget(QLabel("Y-Axis:    Min"))
+        ylim_control.addWidget(y_label_min)
         ylim_control.addWidget(y_min)
-        ylim_control.addWidget(QLabel(" Max"))
+        ylim_control.addWidget(y_label_max)
         ylim_control.addWidget(y_max)
         ylim_control.addStretch()
 
