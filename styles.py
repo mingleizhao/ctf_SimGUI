@@ -52,6 +52,10 @@ QGroupBox::title {
 
 SHARED_QTABWIDGET_STYLESHEET = """
 /* Tabs */
+QTabWidget::tab-bar {
+    alignment: center;
+}
+
 QTabWidget::pane {
     border: 1px solid #4A4A4A;
     border-radius: 6px;

@@ -165,7 +165,7 @@ class CTFSimGUI(QMainWindow):
         self.pixel_size_slider = LabeledSlider("Pixel Size (Å)", min_value=0.2, max_value=5., step=0.1, value_format="{:.3f}" )
         self.defocus_slider = LabeledSlider("Avg. Defocus (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}")
         self.amplitude_contrast_slider = LabeledSlider("Amplitude Contrast", min_value=0, max_value=1, step=0.01, value_format="{:.2f}")
-        self.additional_phase_slider = LabeledSlider("Additional phase shift (°)", min_value=0, max_value=180, step=1, value_format="{:.0f}") 
+        self.additional_phase_slider = LabeledSlider("Additional Phase Shift (°)", min_value=0, max_value=180, step=1, value_format="{:.0f}") 
 
         layout = QVBoxLayout()
         layout.addWidget(self.detector_label)
