@@ -170,7 +170,7 @@ class AppController(CTFSimGUI):
 
         # Ice Plots
         self.canvas_ice.fig.subplots_adjust(hspace=0.25, top=0.9, bottom=0.05)
-        self.canvas_ice.axes[1].set_title("Impact of Ice on CTF", fontsize=18, fontweight='bold', pad=20)
+        self.canvas_ice.axes[1].set_title("Impact of Sample Thickness on CTF", fontsize=18, fontweight='bold', pad=20)
         self.canvas_ice.axes[1].set_xlim(0, 0.5)
         self.canvas_ice.axes[1].tick_params(axis='both', which='major', labelsize=12)
         self.canvas_ice.axes[1].set_ylim(-1, 1)
