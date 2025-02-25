@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QDoubleValidator, QFontMetrics
-from styles import SHARED_QSLIDER_STYLESHEET, SHARED_SLIDER_STYLESHEET
+from styles import QSLIDER_STYLE, LABELED_SLIDER_STYLE
 
 
 class LabeledSlider(QWidget):
@@ -97,8 +97,8 @@ class LabeledSlider(QWidget):
         main_layout.addWidget(self.slider)
 
         # Apply Styles
-        self.setStyleSheet(SHARED_SLIDER_STYLESHEET)
-        self.slider.setStyleSheet(SHARED_QSLIDER_STYLESHEET)
+        self.setStyleSheet(LABELED_SLIDER_STYLE)
+        self.slider.setStyleSheet(QSLIDER_STYLE)
 
         self.set_value(min_value)
 

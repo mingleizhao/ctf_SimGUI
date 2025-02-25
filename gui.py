@@ -4,13 +4,15 @@ matplotlib.use("Qt5Agg")  # Use the Qt5 backend
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QPushButton, 
     QVBoxLayout, QHBoxLayout, QGroupBox, QTabWidget, QDoubleSpinBox,
-    QCheckBox, QComboBox, QRadioButton, QButtonGroup, QSizePolicy
+    QCheckBox, QComboBox, QRadioButton, QButtonGroup, QSizePolicy,
+    QGridLayout
 )
+from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from customized_widgets import LabeledSlider
 from models import DetectorConfigs
-from styles import SHARED_QGROUPBOX_STYLESHEET, SHARED_QTABWIDGET_STYLESHEET
+from styles import LEFT_PANEL_QGROUPBOX_STYLE, RIGHT_PANEL_QGROUPBOX_STYLE, QTABWIDGET_STYLE
 
 
 class MplCanvas(FigureCanvasQTAgg):
@@ -148,7 +150,7 @@ class CTFSimGUI(QMainWindow):
         layout.addWidget(self.obj_lens_stability_slider)
 
         self.microscope_box.setLayout(layout)
-        self.microscope_box.setStyleSheet(SHARED_QGROUPBOX_STYLESHEET)
+        self.microscope_box.setStyleSheet(LEFT_PANEL_QGROUPBOX_STYLE)
 
     def _build_imaging_section(self) -> None:
         """
@@ -176,13 +178,13 @@ class CTFSimGUI(QMainWindow):
         layout.addWidget(self.additional_phase_slider)
 
         self.imaging_box.setLayout(layout)
-        self.imaging_box.setStyleSheet(SHARED_QGROUPBOX_STYLESHEET)
+        self.imaging_box.setStyleSheet(LEFT_PANEL_QGROUPBOX_STYLE)
 
     def _build_plotting_section(self) -> None:
         """
         Create a QGroupBox for 'Plotting Parameters' (envelope function toggles, CTFs, etc.).
         """
-        self.plotting_box = QGroupBox("Plotting Parameters")
+        self.plotting_box = QGroupBox("CTF Calculation Options")
 
         # Create widgets
         self.temporal_env_check = QCheckBox("Temporal Envelope")   
@@ -218,7 +220,7 @@ class CTFSimGUI(QMainWindow):
         layout.addLayout(button_layout)
 
         self.plotting_box.setLayout(layout)
-        self.plotting_box.setStyleSheet(SHARED_QGROUPBOX_STYLESHEET)
+        self.plotting_box.setStyleSheet(LEFT_PANEL_QGROUPBOX_STYLE)
 
     def _build_button_section(self) -> None:
         """
@@ -234,25 +236,34 @@ class CTFSimGUI(QMainWindow):
         self.button_box.addWidget(self.reset_button)
         self.button_box.addWidget(self.save_img_button)
         self.button_box.addWidget(self.save_csv_button)
-
  
     def _build_plot_tabs(self) -> None:
         """
-        Create a QTabWidget with two tabs for 1D-CTF and 2D-CTF plots.
+        Create a QTabWidget with three tabs for 1D-CTF, 2D-CTF, ICE-CTF plots.
         Each tab holds its own MplCanvas.
         """
         self.plot_tabs = QTabWidget()
-        self.plot_tabs.setStyleSheet(SHARED_QTABWIDGET_STYLESHEET)
+        self.plot_tabs.setStyleSheet(QTABWIDGET_STYLE)
+        self.plot_tabs.addTab(self._build_1d_ctf_tab(), "1D-CTF")
+        self.plot_tabs.addTab(self._build_2d_ctf_tab(), "2D-CTF")
+        self.plot_tabs.addTab(self._build_ice_ctf_tab(), "ICE-CTF")
 
-        # 1D Plot Tab
+    def _build_1d_ctf_tab(self):
+        """
+        Build the 1D CTF tab.
+
+        Returns:
+            QWidget: Widget containing the canvas and controls.
+        """
         self.canvas_1d = MplCanvas(self, width=5, height=4)
         self.canvas_1d.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Allow canvas to expand fully
 
         widget_1d = QWidget()
         layout_1d = QVBoxLayout(widget_1d)
-
         layout_1d.addWidget(self.canvas_1d)
-        layout_1d.addLayout(self._build_axis_control(
+
+        display_1d = QHBoxLayout()
+        display_1d.addLayout(self._build_axis_control(
             "plot_1d",
             x_min_range=(-0.1, 1), x_min_value=0,
             x_max_range=(0, 1.1), x_max_value=0.5,
@@ -260,30 +271,103 @@ class CTFSimGUI(QMainWindow):
             y_max_range=(-1, 1.1), y_max_value=1
         ))
 
-        # 2D Plot Tab
+        self.show_temp = QCheckBox("Temporal Envelope")
+        self.show_spatial = QCheckBox("Spatial Envelope")
+        self.show_detector = QCheckBox("Detector Envelope")
+        self.show_total = QCheckBox("Total Envelope")
+        self.show_y0 = QCheckBox("y=0 dotted line")
+        self.show_legend = QCheckBox("Legend")
+
+        display_1d.addStretch() 
+        display_1d.addWidget(self.show_temp)
+        display_1d.addStretch()        
+        display_1d.addWidget(self.show_spatial)
+        display_1d.addStretch() 
+        display_1d.addWidget(self.show_detector)
+        display_1d.addStretch() 
+        display_1d.addWidget(self.show_total)
+        display_1d.addStretch() 
+        display_1d.addWidget(self.show_y0)
+        display_1d.addStretch() 
+        display_1d.addWidget(self.show_legend)
+
+        display_control_1d = QGroupBox()
+        display_control_1d.setLayout(display_1d)
+        display_control_1d.setStyleSheet(RIGHT_PANEL_QGROUPBOX_STYLE)
+
+        layout_1d.addWidget(display_control_1d)
+
+        return widget_1d
+    
+    def _build_2d_ctf_tab(self):
+        """
+        Build the 2D CTF tab.
+
+        Returns:
+            QWidget: Widget containing the canvas and controls.
+        """
         self.canvas_2d = MplCanvas(self, width=5, height=4)
         self.canvas_2d.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Allow canvas to expand fully
 
-        self.defocus_diff_slider_2d = LabeledSlider("𝛥Defocus (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}")
-        self.defocus_az_slider_2d = LabeledSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}")
+        widget_2d = QWidget()
+        layout_2d = QVBoxLayout(widget_2d)
+        layout_2d.addWidget(self.canvas_2d)
 
-        layout_2d_sliders = QHBoxLayout()
-        layout_2d_sliders.addLayout(self._build_axis_control(
+        display_2d = QHBoxLayout()
+        display_2d.addLayout(self._build_axis_control(
             "plot_2d",
             x_min_range=(-0.5, 0.5), x_min_value=-0.5,
             x_max_range=(-0.5, 0.5), x_max_value=0.5,
             y_min_range=(-0.5, 0.5), y_min_value=-1,
             y_max_range=(-0.5, 0.5), y_max_value=1
         ))
-        layout_2d_sliders.addWidget(self.defocus_diff_slider_2d)
-        layout_2d_sliders.addWidget(self.defocus_az_slider_2d)
 
-        widget_2d = QWidget()
-        layout_2d = QVBoxLayout(widget_2d)
-        layout_2d.addWidget(self.canvas_2d)
-        layout_2d.addLayout(layout_2d_sliders)
+        scale_2d = QGridLayout()
+        self.freq_scale_2d = QDoubleSpinBox()
+        self.freq_scale_2d.setRange(0.1, 0.5)
+        self.freq_scale_2d.setValue(0.5)
+        self.freq_scale_2d.setSingleStep(0.02)
+        self.freq_scale_2d.setDecimals(3)
+        self.freq_scale_2d.setFixedWidth(70)
+
+        self.gray_scale_2d = QDoubleSpinBox()
+        self.gray_scale_2d.setRange(0.05, 1)
+        self.gray_scale_2d.setValue(1)
+        self.gray_scale_2d.setSingleStep(0.02)
+        self.gray_scale_2d.setDecimals(3)
+        self.gray_scale_2d.setFixedWidth(70)
+
+        scale_2d.addWidget(QLabel("|Spatial Frequency|:"), 0, 0)
+        scale_2d.addWidget(self.freq_scale_2d, 0, 1)
+        scale_2d.addWidget(QLabel("Max Gray Scale: "), 1, 0)
+        scale_2d.addWidget(self.gray_scale_2d, 1, 1)
+
+        display_2d.addStretch()
+        display_2d.addLayout(scale_2d)
+        display_2d.addStretch()
+
+        self.defocus_diff_slider_2d = LabeledSlider("𝛥Defocus (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}")
+        self.defocus_az_slider_2d = LabeledSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}")
         
-        # ice thickness Tab
+        display_2d.addWidget(self.defocus_diff_slider_2d)
+        display_2d.addStretch()
+        display_2d.addWidget(self.defocus_az_slider_2d)
+
+        display_control_2d = QGroupBox()
+        display_control_2d.setLayout(display_2d)
+        display_control_2d.setStyleSheet(RIGHT_PANEL_QGROUPBOX_STYLE)
+        
+        layout_2d.addWidget(display_control_2d)
+        
+        return widget_2d
+
+    def _build_ice_ctf_tab(self):
+        """
+        Build the ICE CTF tab.
+
+        Returns:
+            QWidget: Widget containing the canvas and controls.
+        """
         # Define subplot arguments for the layout
         subplot_args = {
             1: {"rowspan": slice(0, 1), "colspan": slice(0, 2)},  # Top row spanning two columns
@@ -291,38 +375,70 @@ class CTFSimGUI(QMainWindow):
             3: {"rowspan": slice(1, 2), "colspan": slice(1, 2)},  # Bottom-right
         }
         self.canvas_ice = MplCanvas(self, subplot_grid=(2, 2), subplot_args=subplot_args, width=5, height=4)
+        self.canvas_ice.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Allow canvas to expand fully
+
         self.ice_thickness_slider = LabeledSlider("Ice Thickness (nm)", min_value=1, max_value=1000, step=1, value_format="{:.0f}" )
         self.xlim_slider_ice = LabeledSlider("X-axis Limit (Å⁻¹)", min_value=0.1, max_value=1.1, step=0.01, value_format="{:.2f}" )
         self.defocus_diff_slider_ice = LabeledSlider("𝛥Defocus (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}")
-        self.defocus_az_slider_ice = LabeledSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}")        
-        
-        layout_ice_sliders = QHBoxLayout()
-        layout_ice_sliders.addWidget(self.ice_thickness_slider)
-        layout_ice_sliders.addWidget(self.xlim_slider_ice)
-        layout_ice_sliders.addWidget(self.defocus_diff_slider_ice)
-        layout_ice_sliders.addWidget(self.defocus_az_slider_ice)
+        self.defocus_az_slider_ice = LabeledSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}") 
 
         widget_ice = QWidget()
         layout_ice = QVBoxLayout(widget_ice)
         layout_ice.addWidget(self.canvas_ice)
-        layout_ice.addLayout(layout_ice_sliders)
 
-        # Add widgets to each tab
-        self.plot_tabs.addTab(widget_1d, "1D-CTF")
-        self.plot_tabs.addTab(widget_2d, "2D-CTF")
-        self.plot_tabs.addTab(widget_ice, "ICE-CTF")
+        display_ice = QHBoxLayout()
+
+        display_ice.addWidget(self.ice_thickness_slider)
+        display_ice.addStretch() 
+        display_ice.addWidget(self.xlim_slider_ice)
+        display_ice.addStretch()
+
+        scale_ice = QGridLayout()
+        self.freq_scale_ice = QDoubleSpinBox()
+        self.freq_scale_ice.setRange(0.1, 0.5)
+        self.freq_scale_ice.setValue(0.5)
+        self.freq_scale_ice.setSingleStep(0.02)
+        self.freq_scale_ice.setDecimals(3)
+        self.freq_scale_ice.setFixedWidth(70)
+
+        self.gray_scale_ice = QDoubleSpinBox()
+        self.gray_scale_ice.setRange(0.05, 1)
+        self.gray_scale_ice.setValue(1)
+        self.gray_scale_ice.setSingleStep(0.02)
+        self.gray_scale_ice.setDecimals(3)
+        self.gray_scale_ice.setFixedWidth(70)
+
+        scale_ice.addWidget(QLabel("|Spatial Frequency|:"), 0, 0)
+        scale_ice.addWidget(self.freq_scale_ice, 0, 1)
+        scale_ice.addWidget(QLabel("Max Gray Scale: "), 1, 0)
+        scale_ice.addWidget(self.gray_scale_ice, 1, 1)
+
+        display_ice.addLayout(scale_ice)
+        display_ice.addStretch()
+   
+        display_ice.addWidget(self.defocus_diff_slider_ice)
+        display_ice.addStretch()
+        display_ice.addWidget(self.defocus_az_slider_ice)
+
+        display_control_ice = QGroupBox()
+        display_control_ice.setLayout(display_ice)
+        display_control_ice.setStyleSheet(RIGHT_PANEL_QGROUPBOX_STYLE)
+
+        layout_ice.addWidget(display_control_ice)
+
+        return widget_ice
 
     def _build_axis_control(
-        self,
-        attr_prefix: str,
-        x_min_range: tuple[float, float], x_min_value: float,
-        x_max_range: tuple[float, float], x_max_value: float,
-        y_min_range: tuple[float, float], y_min_value: float,
-        y_max_range: tuple[float, float], y_max_value: float,
-        single_step: float = 0.01, decimals: int = 3, width: int = 70
-    ):
+            self,
+            attr_prefix: str,
+            x_min_range: tuple[float, float], x_min_value: float,
+            x_max_range: tuple[float, float], x_max_value: float,
+            y_min_range: tuple[float, float], y_min_value: float,
+            y_max_range: tuple[float, float], y_max_value: float,
+            single_step: float = 0.01, decimals: int = 3, width: int = 70
+        ):
         """
-        Generalized function to create an axis control layout with configurable QDoubleSpinBox widgets.
+        Generalized function to create an axis control layout with configurable QDoubleSpinBox widgets using QGridLayout.
 
         Args:
             attr_prefix (str): Prefix for instance variables (e.g., "xlim_1d" → creates self.xlim_1d_min, self.xlim_1d_max).
@@ -351,10 +467,8 @@ class CTFSimGUI(QMainWindow):
             spinbox.setFixedWidth(width)
 
         # Dynamically create instance variables using the prefix
-        setattr(self, f"{attr_prefix}_x_min", QDoubleSpinBox())
-        setattr(self, f"{attr_prefix}_x_max", QDoubleSpinBox())
-        setattr(self, f"{attr_prefix}_y_min", QDoubleSpinBox())
-        setattr(self, f"{attr_prefix}_y_max", QDoubleSpinBox())
+        for axis in ["x_min", "x_max", "y_min", "y_max"]:
+            setattr(self, f"{attr_prefix}_{axis}", QDoubleSpinBox())
 
         x_min = getattr(self, f"{attr_prefix}_x_min")
         x_max = getattr(self, f"{attr_prefix}_x_max")
@@ -367,42 +481,33 @@ class CTFSimGUI(QMainWindow):
         configure_spinbox(y_max, y_max_value, y_max_range)
 
         # Create labels
-        x_label_min = QLabel("X-Axis:    Min")
-        x_label_min.setMinimumHeight(23)
-        x_label_max = QLabel(" Max")
-        y_label_min = QLabel("Y-Axis:    Min")
-        y_label_min.setMinimumHeight(23)
-        y_label_max = QLabel(" Max")
+        labels = {
+            "x_axis": QLabel("X-Axis:"),
+            "x_min": QLabel("Min"),
+            "x_max": QLabel("Max"),
+            "y_axis": QLabel("Y-Axis:"),
+            "y_min": QLabel("Min"),
+            "y_max": QLabel("Max")
+        }
 
-        # Find the widest label
-        max_width = max(x_label_min.sizeHint().width(), y_label_min.sizeHint().width())
+        # Create Grid Layout
+        grid_layout = QGridLayout()
 
-        # Apply the same width to all labels
-        x_label_min.setFixedWidth(max_width)
-        y_label_min.setFixedWidth(max_width)
+        # X-Axis Controls (Row 0)
+        grid_layout.addWidget(labels["x_axis"], 0, 0)
+        grid_layout.addWidget(labels["x_min"], 0, 1)
+        grid_layout.addWidget(x_min, 0, 2)
+        grid_layout.addWidget(labels["x_max"], 0, 3)
+        grid_layout.addWidget(x_max, 0, 4)
 
-        # X-Axis Layout
-        xlim_control = QHBoxLayout()
-        xlim_control.addWidget(x_label_min)
-        xlim_control.addWidget(x_min)
-        xlim_control.addWidget(x_label_max)
-        xlim_control.addWidget(x_max)
-        xlim_control.addStretch()
+        # Y-Axis Controls (Row 1)
+        grid_layout.addWidget(labels["y_axis"], 1, 0)
+        grid_layout.addWidget(labels["y_min"], 1, 1)
+        grid_layout.addWidget(y_min, 1, 2)
+        grid_layout.addWidget(labels["y_max"], 1, 3)
+        grid_layout.addWidget(y_max, 1, 4)
 
-        # Y-Axis Layout
-        ylim_control = QHBoxLayout()
-        ylim_control.addWidget(y_label_min)
-        ylim_control.addWidget(y_min)
-        ylim_control.addWidget(y_label_max)
-        ylim_control.addWidget(y_max)
-        ylim_control.addStretch()
-
-        # Main Layout
-        layout_control = QVBoxLayout()
-        layout_control.addLayout(xlim_control)
-        layout_control.addLayout(ylim_control)
-
-        return layout_control    
+        return grid_layout 
 
 
 def test_gui() -> None:

@@ -2,15 +2,16 @@
 Shared style sheets for QSlider, QLineEdit, and QGroupBox to maintain a consistent UI theme.
 """
 
-SHARED_SLIDER_STYLESHEET = """
+LABELED_SLIDER_STYLE = """
 LabeledSlider {
     max-height: 55px;
     min-height: 46px;
     max-width: 320px;
+    min-width: 200px;
 }
 """
 
-SHARED_QSLIDER_STYLESHEET = """
+QSLIDER_STYLE = """
 QSlider::handle:horizontal {
     width: 18px; /* Adjust handle size */
     height: 18px;
@@ -34,7 +35,7 @@ QSlider::add-page:horizontal {
 }
 """
 
-SHARED_QGROUPBOX_STYLESHEET ="""
+LEFT_PANEL_QGROUPBOX_STYLE ="""
 QGroupBox {
     font-size: 16px; /* Set font size */
     font-weight: bold; /* Make it bold */
@@ -50,7 +51,16 @@ QGroupBox::title {
 }
 """
 
-SHARED_QTABWIDGET_STYLESHEET = """
+RIGHT_PANEL_QGROUPBOX_STYLE ="""
+QGroupBox {
+    font-size: 16px; /* Set font size */
+    font-weight: bold; /* Make it bold */
+    border: 1px solid #4A4A4A;
+    border-radius: 6px;
+}
+"""
+
+QTABWIDGET_STYLE = """
 /* Tabs */
 QTabWidget::tab-bar {
     alignment: center;

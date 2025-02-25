@@ -73,6 +73,12 @@ class AppController(CTFSimGUI):
         self.temporal_env_check.setChecked(True)
         self.spatial_env_check.setChecked(True)
         self.detector_env_check.setChecked(True)
+        self.show_temp.setChecked(True)
+        self.show_spatial.setChecked(True)
+        self.show_detector.setChecked(True)
+        self.show_total.setChecked(True)
+        self.show_y0.setChecked(True)
+        self.show_legend.setChecked(True)
         self.ice_thickness_slider.set_value(50)
         self.plot_1d_x_min.setValue(0)
         self.plot_1d_x_max.setValue(0.5)
@@ -82,6 +88,10 @@ class AppController(CTFSimGUI):
         self.plot_2d_x_max.setValue(0.5)
         self.plot_2d_y_min.setValue(-0.5)
         self.plot_2d_y_max.setValue(0.5)
+        self.freq_scale_2d.setValue(0.5)
+        self.gray_scale_2d.setValue(1)
+        self.freq_scale_ice.setValue(0.5)
+        self.gray_scale_ice.setValue(1)
 
     def _setup_initial_plots(self) -> None:
         """
@@ -93,8 +103,9 @@ class AppController(CTFSimGUI):
         self.canvas_1d.axes[1].set_xlim(0, 0.5)
         self.canvas_1d.axes[1].tick_params(axis='both', which='major', labelsize=14)
         self.canvas_1d.axes[1].set_ylim(-1, 1)
-        self.canvas_1d.axes[1].axhline(y=0, color='grey', linestyle='--', alpha=0.8)
         self.canvas_1d.axes[1].set_xlabel("Spatial Frequency (Å⁻¹)", fontsize=16)
+
+        self.line_y0 = self.canvas_1d.axes[1].axhline(y=0, color='grey', linestyle='--', alpha=0.8)
 
         self.line_et = self.canvas_1d.axes[1].plot(
             self.freqs_1d,
@@ -129,7 +140,7 @@ class AppController(CTFSimGUI):
             label="Microscope CTF",
             linewidth=3
         )
-        self.canvas_1d.axes[1].legend(fontsize=16)
+        self.legend_1d = self.canvas_1d.axes[1].legend(fontsize=16)
 
         # 2D Plot
         self.canvas_2d.axes[1].set_title("2-D Contrast Transfer Function", fontsize=18, fontweight='bold', pad=20)
@@ -141,8 +152,8 @@ class AppController(CTFSimGUI):
             vmax=1,
         )
         self.canvas_2d.axes[1].tick_params(axis='both', labelsize=14)
-        self.canvas_2d.axes[1].set_xticks([-0.5, -0.25, 0, 0.25, 0.5])
-        self.canvas_2d.axes[1].set_yticks([-0.5, -0.25, 0, 0.25, 0.5])
+        # self.canvas_2d.axes[1].set_xticks([-0.5, -0.25, 0, 0.25, 0.5])
+        # self.canvas_2d.axes[1].set_yticks([-0.5, -0.25, 0, 0.25, 0.5])
         self.canvas_2d.axes[1].set_xlabel("Spatial Frequency X (Å⁻¹)", fontsize=14)
         self.canvas_2d.axes[1].set_ylabel("Spatial Frequency Y (Å⁻¹)", fontsize=14)
         cbar_2D = self.canvas_ice.fig.colorbar(
@@ -203,11 +214,10 @@ class AppController(CTFSimGUI):
             pad=0.05  # Adjust the spacing between the color bar and the plot
         )
         cbar_ice.ax.set_title('CTF')
-        # cbar.ax.xaxis.set_label_position('top')
-        self.canvas_ice.axes[2].set_xticks([-0.5, -0.25, 0, 0.25, 0.5])
-        self.canvas_ice.axes[2].set_yticks([-0.5, -0.25, 0, 0.25, 0.5])
-        self.canvas_ice.axes[3].set_xticks([-0.5, -0.25, 0, 0.25, 0.5])
-        self.canvas_ice.axes[3].set_yticks([-0.5, -0.25, 0, 0.25, 0.5])
+        # self.canvas_ice.axes[2].set_xticks([-0.5, -0.25, 0, 0.25, 0.5])
+        # self.canvas_ice.axes[2].set_yticks([-0.5, -0.25, 0, 0.25, 0.5])
+        # self.canvas_ice.axes[3].set_xticks([-0.5, -0.25, 0, 0.25, 0.5])
+        # self.canvas_ice.axes[3].set_yticks([-0.5, -0.25, 0, 0.25, 0.5])
 
         # Annotations for 1D CTF
         self.annotation_1d = self.canvas_1d.axes[1].annotate(
@@ -292,10 +302,20 @@ class AppController(CTFSimGUI):
         self.plot_2d_x_max.valueChanged.connect(self.update_plot_range)
         self.plot_2d_y_min.valueChanged.connect(self.update_plot_range)
         self.plot_2d_y_max.valueChanged.connect(self.update_plot_range)
+        self.freq_scale_2d.valueChanged.connect(self.zoom_2d_ctf)
         self.xlim_slider_ice.valueChanged.connect(self.update_plot_range)
+        self.freq_scale_ice.valueChanged.connect(self.zoom_2d_ctf)
+        self.gray_scale_2d.valueChanged.connect(self.update_grayness)
+        self.gray_scale_ice.valueChanged.connect(self.update_grayness)
         self.temporal_env_check.stateChanged.connect(lambda value, key="temporal_env": self.update_ctf(key, value))
         self.spatial_env_check.stateChanged.connect(lambda value, key="spatial_env": self.update_ctf(key, value))
         self.detector_env_check.stateChanged.connect(lambda value, key="detector_env": self.update_ctf(key, value))
+        self.show_temp.stateChanged.connect(self.update_display_1d)
+        self.show_spatial.stateChanged.connect(self.update_display_1d)
+        self.show_detector.stateChanged.connect(self.update_display_1d)
+        self.show_total.stateChanged.connect(self.update_display_1d)
+        self.show_y0.stateChanged.connect(self.update_display_1d)
+        self.show_legend.stateChanged.connect(self.update_display_1d)
         self.plot_tabs.currentChanged.connect(lambda value, key="tab_switch": self.update_ctf(key, value))
         self.reset_button.clicked.connect(self.reset_parameters)
         self.save_img_button.clicked.connect(self.save_plot)
@@ -422,9 +442,7 @@ class AppController(CTFSimGUI):
     def update_plot_range(self) -> None:
         """
         Update X Y limits of the plot without setting data.
-        """
-        # self.canvas_ice.axes[1].set_ylim(-1, 1)
-        
+        """        
         if self.plot_tabs.currentIndex() == 0:
             self.canvas_1d.axes[1].set_xlim(self.plot_1d_x_min.value(), self.plot_1d_x_max.value())
             self.canvas_1d.axes[1].set_ylim(self.plot_1d_y_min.value(), self.plot_1d_y_max.value())
@@ -436,6 +454,50 @@ class AppController(CTFSimGUI):
         elif self.plot_tabs.currentIndex() == 2:
             self.canvas_ice.axes[1].set_xlim(0, self.xlim_slider_ice.get_value())
             self.canvas_ice.draw_idle()
+
+    def zoom_2d_ctf(self) -> None:
+        """
+        Zoom on 2D CTF.
+        """
+        if self.plot_tabs.currentIndex() == 1:
+            self.canvas_2d.axes[1].set_xlim(-self.freq_scale_2d.value(), self.freq_scale_2d.value())
+            self.canvas_2d.axes[1].set_ylim(-self.freq_scale_2d.value(), self.freq_scale_2d.value())
+            self.canvas_2d.axes[1].set_xlim(-self.freq_scale_2d.value(), self.freq_scale_2d.value())
+            self.canvas_2d.axes[1].set_ylim(-self.freq_scale_2d.value(), self.freq_scale_2d.value())
+            self.canvas_2d.draw_idle()
+        elif self.plot_tabs.currentIndex() == 2:
+            self.canvas_ice.axes[2].set_xlim(-self.freq_scale_ice.value(), self.freq_scale_ice.value())
+            self.canvas_ice.axes[2].set_ylim(-self.freq_scale_ice.value(), self.freq_scale_ice.value())
+            self.canvas_ice.axes[3].set_xlim(-self.freq_scale_ice.value(), self.freq_scale_ice.value())
+            self.canvas_ice.axes[3].set_ylim(-self.freq_scale_ice.value(), self.freq_scale_ice.value())
+            self.canvas_ice.draw_idle()
+
+    def update_grayness(self) -> None:
+        """
+        Update the max scales on 2D CTF.
+        """
+        if self.plot_tabs.currentIndex() == 1:
+            current_vmin, _ = self.image.get_clim()
+            self.image.set_clim(vmin=current_vmin, vmax=self.gray_scale_2d.value())
+            self.canvas_2d.draw_idle()
+        elif self.plot_tabs.currentIndex() == 2:
+            current_vmin, _ = self.ice_image.get_clim()
+            self.ice_image.set_clim(vmin= current_vmin, vmax=self.gray_scale_ice.value())
+            self.ice_image_ref.set_clim(vmin= current_vmin, vmax=self.gray_scale_ice.value())
+            self.canvas_ice.draw_idle()
+
+    def update_display_1d(self) -> None:
+        """
+        Update the display of 1D CTF
+        """
+        self.line_et[0].set_visible(self.show_temp.isChecked())
+        self.line_es[0].set_visible(self.show_spatial.isChecked())
+        self.line_ed[0].set_visible(self.show_detector.isChecked())
+        self.line_te[0].set_visible(self.show_total.isChecked())
+        self.line_y0.set_visible(self.show_y0.isChecked())
+        self.legend_1d = self.canvas_1d.axes[1].legend(fontsize=16)
+        self.legend_1d.set_visible(self.show_legend.isChecked())
+        self.canvas_1d.draw_idle()
 
     def update_wrap_func(self) -> None:
         """
