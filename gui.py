@@ -110,6 +110,7 @@ class CTFSimGUI(QMainWindow):
         # 2) Build each section of the left panel (microscope, imaging, plotting, and buttons.)
         self._build_microscope_section()
         self._build_imaging_section()
+        self._build_detector_section()
         self._build_plotting_section()
         self._build_button_section()
 
@@ -119,6 +120,7 @@ class CTFSimGUI(QMainWindow):
         # 4) Populate the left panel
         self.left_panel.addWidget(self.microscope_box)
         self.left_panel.addWidget(self.imaging_box)
+        self.left_panel.addWidget(self.detector_box)
         self.left_panel.addWidget(self.plotting_box)
         self.left_panel.addLayout(self.button_box)
 
@@ -154,9 +156,27 @@ class CTFSimGUI(QMainWindow):
 
     def _build_imaging_section(self) -> None:
         """
-        Create a QGroupBox for 'Imaging Parameters' (detector, pixel size, defocus, etc.).
+        Create a QGroupBox for 'Imaging Parameters' (defocus, amplitude contrast, and additional phase shift).
         """
         self.imaging_box = QGroupBox("Imaging Parameters")
+
+        self.defocus_slider = LabeledSlider("Avg. Defocus (µm)", min_value=-5, max_value=10, step=0.01, value_format="{:.4f}")
+        self.amplitude_contrast_slider = LabeledSlider("Amplitude Contrast", min_value=0, max_value=1, step=0.01, value_format="{:.2f}")
+        self.additional_phase_slider = LabeledSlider("Additional Phase Shift (°)", min_value=0, max_value=180, step=1, value_format="{:.0f}") 
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.defocus_slider)
+        layout.addWidget(self.amplitude_contrast_slider)
+        layout.addWidget(self.additional_phase_slider)
+
+        self.imaging_box.setLayout(layout)
+        self.imaging_box.setStyleSheet(LEFT_PANEL_QGROUPBOX_STYLE)
+
+    def _build_detector_section(self) -> None:
+        """
+        Create a QGroupBox for 'Detector Parameters' (detector and pixel size).
+        """
+        self.detector_box = QGroupBox("Detector Parameters")
 
         # Detector dropdown
         self.detector_label = QLabel("Detector:")
@@ -165,20 +185,14 @@ class CTFSimGUI(QMainWindow):
         self.detector_combo.addItems([detector.value["name"] for detector in DetectorConfigs])
 
         self.pixel_size_slider = LabeledSlider("Pixel Size (Å)", min_value=0.5, max_value=5., step=0.1, value_format="{:.3f}" )
-        self.defocus_slider = LabeledSlider("Avg. Defocus (µm)", min_value=-5, max_value=10, step=0.01, value_format="{:.4f}")
-        self.amplitude_contrast_slider = LabeledSlider("Amplitude Contrast", min_value=0, max_value=1, step=0.01, value_format="{:.2f}")
-        self.additional_phase_slider = LabeledSlider("Additional Phase Shift (°)", min_value=0, max_value=180, step=1, value_format="{:.0f}") 
-
+  
         layout = QVBoxLayout()
         layout.addWidget(self.detector_label)
         layout.addWidget(self.detector_combo)
         layout.addWidget(self.pixel_size_slider)
-        layout.addWidget(self.defocus_slider)
-        layout.addWidget(self.amplitude_contrast_slider)
-        layout.addWidget(self.additional_phase_slider)
 
-        self.imaging_box.setLayout(layout)
-        self.imaging_box.setStyleSheet(LEFT_PANEL_QGROUPBOX_STYLE)
+        self.detector_box.setLayout(layout)
+        self.detector_box.setStyleSheet(LEFT_PANEL_QGROUPBOX_STYLE)
 
     def _build_plotting_section(self) -> None:
         """
