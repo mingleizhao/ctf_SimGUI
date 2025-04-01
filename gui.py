@@ -164,8 +164,8 @@ class CTFSimGUI(QMainWindow):
         # Populate the combo box with values from DETECTOR_REGISTERS
         self.detector_combo.addItems([detector.value["name"] for detector in DetectorConfigs])
 
-        self.pixel_size_slider = LabeledSlider("Pixel Size (Å)", min_value=0.2, max_value=5., step=0.1, value_format="{:.3f}" )
-        self.defocus_slider = LabeledSlider("Avg. Defocus (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}")
+        self.pixel_size_slider = LabeledSlider("Pixel Size (Å)", min_value=0.5, max_value=5., step=0.1, value_format="{:.3f}" )
+        self.defocus_slider = LabeledSlider("Avg. Defocus (µm)", min_value=-5, max_value=10, step=0.01, value_format="{:.4f}")
         self.amplitude_contrast_slider = LabeledSlider("Amplitude Contrast", min_value=0, max_value=1, step=0.01, value_format="{:.2f}")
         self.additional_phase_slider = LabeledSlider("Additional Phase Shift (°)", min_value=0, max_value=180, step=1, value_format="{:.0f}") 
 
@@ -246,11 +246,12 @@ class CTFSimGUI(QMainWindow):
         self.plot_tabs.setStyleSheet(QTABWIDGET_STYLE)
         self.plot_tabs.addTab(self._build_1d_ctf_tab(), "1D-CTF")
         self.plot_tabs.addTab(self._build_2d_ctf_tab(), "2D-CTF")
-        self.plot_tabs.addTab(self._build_ice_ctf_tab(), "ICE-CTF")
+        self.plot_tabs.addTab(self._build_ice_ctf_tab(), "ICE")
+        self.plot_tabs.addTab(self._build_tomo_ctf_tab(), "TOMO")
 
     def _build_1d_ctf_tab(self):
         """
-        Build the 1D CTF tab.
+        Build the 1D-CTF tab.
 
         Returns:
             QWidget: Widget containing the canvas and controls.
@@ -301,7 +302,7 @@ class CTFSimGUI(QMainWindow):
     
     def _build_2d_ctf_tab(self):
         """
-        Build the 2D CTF tab.
+        Build the 2D-CTF tab.
 
         Returns:
             QWidget: Widget containing the canvas and controls.
@@ -346,7 +347,7 @@ class CTFSimGUI(QMainWindow):
         display_2d.addLayout(scale_2d)
         display_2d.addStretch()
 
-        self.defocus_diff_slider_2d = LabeledSlider("𝛥Defocus (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}")
+        self.defocus_diff_slider_2d = LabeledSlider("Defocus Ast. (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}")
         self.defocus_az_slider_2d = LabeledSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}")
         
         display_2d.addWidget(self.defocus_diff_slider_2d)
@@ -363,7 +364,7 @@ class CTFSimGUI(QMainWindow):
 
     def _build_ice_ctf_tab(self):
         """
-        Build the ICE CTF tab.
+        Build the ICE-CTF tab.
 
         Returns:
             QWidget: Widget containing the canvas and controls.
@@ -379,7 +380,7 @@ class CTFSimGUI(QMainWindow):
 
         self.ice_thickness_slider = LabeledSlider("Ice Thickness (nm)", min_value=1, max_value=1000, step=1, value_format="{:.0f}" )
         self.xlim_slider_ice = LabeledSlider("X-axis Limit (Å⁻¹)", min_value=0.1, max_value=1.1, step=0.01, value_format="{:.2f}" )
-        self.defocus_diff_slider_ice = LabeledSlider("𝛥Defocus (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}")
+        self.defocus_diff_slider_ice = LabeledSlider("Defocus Ast. (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}")
         self.defocus_az_slider_ice = LabeledSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}") 
 
         widget_ice = QWidget()
@@ -427,6 +428,74 @@ class CTFSimGUI(QMainWindow):
         layout_ice.addWidget(display_control_ice)
 
         return widget_ice
+
+    def _build_tomo_ctf_tab(self):
+        """
+        Build the TOMO-CTF tab.
+
+        Returns:
+            QWidget: Widget containing the canvas and controls.
+        """
+        # Define subplot arguments for the layout
+        subplot_args = {
+            1: {"rowspan": slice(0, 1), "colspan": slice(0, 1)},  # Top-left
+            3: {"rowspan": slice(1, 2), "colspan": slice(0, 1)},  # Bottom-left
+            4: {"rowspan": slice(0, 2), "colspan": slice(1, 2)},  # Right column
+        }
+        self.canvas_tomo = MplCanvas(self, subplot_grid=(2, 2), subplot_args=subplot_args, width=5, height=4)
+        self.canvas_tomo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Allow canvas to expand fully
+
+        # Create sliders for tilt angle and sample_thickness
+        self.sample_thickness_slider_tomo = LabeledSlider("Sample Thickness (nm)", min_value=50, max_value=1000, step=1, value_format="{:.0f}" )
+        self.tilt_slider_tomo = LabeledSlider("Tilt Angle (°)", min_value=-70, max_value=70, step=0.1, value_format="{:.1f}")
+        self.defocus_diff_slider_tomo = LabeledSlider("Defocus Ast. (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}")
+        self.defocus_az_slider_tomo = LabeledSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}") 
+
+        widget_tomo = QWidget()
+        layout_tomo = QVBoxLayout(widget_tomo)
+        layout_tomo.addWidget(self.canvas_tomo)
+
+        display_tomo = QHBoxLayout()
+
+        display_tomo.addWidget(self.sample_thickness_slider_tomo)
+        display_tomo.addStretch() 
+        display_tomo.addWidget(self.tilt_slider_tomo)
+        display_tomo.addStretch()
+
+        scale_tomo = QGridLayout()
+        self.sample_size_tomo = QDoubleSpinBox()
+        self.sample_size_tomo.setRange(0.4, 2)
+        self.sample_size_tomo.setValue(1)
+        self.sample_size_tomo.setSingleStep(0.02)
+        self.sample_size_tomo.setDecimals(2)
+        self.sample_size_tomo.setFixedWidth(70)
+
+        self.gray_scale_tomo = QDoubleSpinBox()
+        self.gray_scale_tomo.setRange(0.05, 1)
+        self.gray_scale_tomo.setValue(1)
+        self.gray_scale_tomo.setSingleStep(0.02)
+        self.gray_scale_tomo.setDecimals(3)
+        self.gray_scale_tomo.setFixedWidth(70)
+
+        scale_tomo.addWidget(QLabel("Sample Size (µm):"), 0, 0)
+        scale_tomo.addWidget(self.sample_size_tomo, 0, 1)
+        scale_tomo.addWidget(QLabel("Max Gray Scale: "), 1, 0)
+        scale_tomo.addWidget(self.gray_scale_tomo, 1, 1)
+
+        display_tomo.addLayout(scale_tomo)
+        display_tomo.addStretch()
+
+        display_tomo.addWidget(self.defocus_diff_slider_tomo)
+        display_tomo.addStretch()
+        display_tomo.addWidget(self.defocus_az_slider_tomo)
+
+        display_control_tomo = QGroupBox()
+        display_control_tomo.setLayout(display_tomo)
+        display_control_tomo.setStyleSheet(RIGHT_PANEL_QGROUPBOX_STYLE)
+
+        layout_tomo.addWidget(display_control_tomo)
+
+        return widget_tomo
 
     def _build_axis_control(
             self,
