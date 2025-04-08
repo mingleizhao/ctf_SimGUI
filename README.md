@@ -12,6 +12,7 @@ This repository provides a **Contrast Transfer Function (CTF)** implementation f
 - **Matplotlib** 3.9.2
 - **PyQt** 5.15.10
 - **Pandas** 2.2.3
+- **Pillow** 11.1.0
 
 ## Usage
 
