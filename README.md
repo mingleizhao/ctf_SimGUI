@@ -33,6 +33,7 @@ The GUI consists of five interactive tabs, each focusing on a key aspect of CTF 
 ![screenshot2](screenshot2.png)
 ![screenshot3](screenshot3.png)
 ![screenshot4](screenshot4.png)
+![screenshot5](screenshot5.png)
 ## Dependencies
 - **Python** 3.12
 - **NumPy** 2.1.3
