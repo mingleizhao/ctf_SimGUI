@@ -29,11 +29,11 @@ The GUI consists of five interactive tabs, each focusing on a key aspect of CTF 
 - Export options for plots and data (CSV, PNG).
 
 ## Screenshots
-![screenshot1](screenshot1.png)
-![screenshot2](screenshot2.png)
-![screenshot3](screenshot3.png)
-![screenshot4](screenshot4.png)
-![screenshot5](screenshot5.png)
+![screenshot1](screenshots/screenshot1.png)
+![screenshot2](screenshots/screenshot2.png)
+![screenshot3](screenshots/screenshot3.png)
+![screenshot4](screenshots/screenshot4.png)
+![screenshot5](screenshots/screenshot5.png)
 ## Dependencies
 - **Python** 3.12
 - **NumPy** 2.1.3

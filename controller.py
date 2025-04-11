@@ -1,14 +1,13 @@
+import os
 import math
 import numpy as np
 import pandas as pd
-from typing import Optional
 from gui import CTFSimGUI
 from models import CTFIce1D, CTFIce2D
 import matplotlib.transforms as transforms
 from matplotlib.colors import Normalize
 from matplotlib.patches import Rectangle
 from matplotlib.ticker import FuncFormatter, FixedLocator
-from matplotlib.image import imread
 from PyQt5.QtWidgets import QApplication, QFileDialog, QMessageBox
 from PIL import Image
 
@@ -1438,10 +1437,11 @@ class AppController(CTFSimGUI):
                 btn.blockSignals(True)
                 btn.setChecked(checked)
                 btn.blockSignals(False)
-
+    
     def _load_and_prepare_image(self, path: str) -> np.ndarray:
         """
         Load an image, convert to grayscale, crop to square, resize to self.image_size, and normalize.
+        If the file doesn't exist, generate and return a random normalized grayscale image.
 
         Args:
             path (str): Path to the image file.
@@ -1449,18 +1449,27 @@ class AppController(CTFSimGUI):
         Returns:
             np.ndarray: A (self.image_size x self.image_size) normalized grayscale image.
         """
-        image = Image.open(path).convert("L")
+        if not os.path.exists(path):
+            print(f"[Warning] Image not found at '{path}'. Generating a random image of size {self.image_size}x{self.image_size}.")
+            return np.random.rand(self.image_size, self.image_size)
 
-        width, height = image.size
-        crop_size = min(width, height)
-        left = (width - crop_size) // 2
-        upper = (height - crop_size) // 2
-        right = left + crop_size
-        lower = upper + crop_size
-        image = image.crop((left, upper, right, lower))
-        image = image.resize((self.image_size, self.image_size), Image.LANCZOS)
-    
-        return np.array(image) / 255.0
+        try:
+            image = Image.open(path).convert("L")
+
+            width, height = image.size
+            crop_size = min(width, height)
+            left = (width - crop_size) // 2
+            upper = (height - crop_size) // 2
+            right = left + crop_size
+            lower = upper + crop_size
+            image = image.crop((left, upper, right, lower))
+            image = image.resize((self.image_size, self.image_size), Image.LANCZOS)
+
+            return np.array(image, dtype=np.float32) / 255.0
+
+        except Exception as e:
+            print(f"[Error] Failed to load image from '{path}': {e}")
+            return np.random.rand(self.image_size, self.image_size)
 
     def show_info(self) -> None:
         """Show additonal info for the specific tab
