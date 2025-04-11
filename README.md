@@ -1,5 +1,32 @@
 # CTF Simulation GUI
-This repository provides a **Contrast Transfer Function (CTF)** implementation for electron microscopy, similar to the [ctf_notebook](https://github.com/mingleizhao/ctf_notebook) project. It features a **PyQt-based GUI** designed for speed and responsiveness, offering a more efficient alternative to the original notebook interface.
+This repository provides a **Contrast Transfer Function (CTF)** simulation tool for electron microscopy, similar to the [ctf_notebook](https://github.com/mingleizhao/ctf_notebook) project. It features a fast and responsive **PyQt-based GUI**, offering a streamlined and interactive alternative to the original notebook interface.
+
+## Features
+
+The GUI consists of five interactive tabs, each focusing on a key aspect of CTF behavior:
+
+1. **1D CTF**  
+   Visualize and explore the 1D CTF curve, including effects of defocus, spherical aberration, phase shift, and envelope functions. Useful for understanding how CTF oscillates and attenuates in frequency space.
+
+2. **2D CTF**  
+   Examine the 2D structure of the CTF in reciprocal space, with support for astigmatism and various envelope functions. Ideal for visualizing symmetry, periodicity, and astigmatism behavior.
+
+3. **CTF Modulation by Sample Thickness**  
+   Demonstrates how a range of defocus values — representing variable sample thickness — affects the resulting CTF through integration. Reveals how defocus spread smooths out oscillations and dampens high-frequency information.
+
+4. **CTF Modulation by Sample Tilting**  
+   Simulates the apparent CTF changes when tilting a sample, as in electron tomography. Illustrates how projection geometry influences defocus, envelope functions, and CTF modulation across tilt angles.
+
+5. **Image Modulation by CTF**  
+   Allows users to visualize how the CTF modulates real or synthetic images in both real space and frequency space (FFT). Includes convolution with the CTF and support for user-uploaded images. Highlights signal loss and modulation across spatial frequencies.
+
+## Additional Highlights
+
+- Real-time sliders for microscope and imaging parameters.
+- Visualization of envelope functions: temporal, spatial coherence, and detector response (DQE).
+- FFT-based convolution to demonstrate how CTF alters image appearance.
+- Support for user image upload, cropping/resizing, and visualization.
+- Export options for plots and data (CSV, PNG).
 
 ## Screenshots
 ![screenshot1](screenshot1.png)

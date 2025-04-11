@@ -5,13 +5,13 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QPushButton, 
     QVBoxLayout, QHBoxLayout, QGroupBox, QTabWidget, QDoubleSpinBox,
     QCheckBox, QComboBox, QRadioButton, QButtonGroup, QSizePolicy,
-    QGridLayout
+    QGridLayout, QSpacerItem
 )
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from customized_widgets import LabeledSlider
 from models import DetectorConfigs
-from styles import LEFT_PANEL_QGROUPBOX_STYLE, RIGHT_PANEL_QGROUPBOX_STYLE, QTABWIDGET_STYLE
+from styles import LEFT_PANEL_QGROUPBOX_STYLE, RIGHT_PANEL_QGROUPBOX_STYLE, QTABWIDGET_STYLE, TAB_BUTTON_STYLE, INFO_BUTTON_STYLE
 
 
 class MplCanvas(FigureCanvasQTAgg):
@@ -175,7 +175,7 @@ class CTFSimGUI(QMainWindow):
         self.detector_box = QGroupBox("Detector Parameters")
 
         # Detector dropdown
-        self.detector_label = QLabel("Detector:")
+        self.detector_label = QLabel("Detector")
         self.detector_combo = QComboBox()
         # Populate the combo box with values from DETECTOR_REGISTERS
         self.detector_combo.addItems([detector.value["name"] for detector in DetectorConfigs])
@@ -196,15 +196,25 @@ class CTFSimGUI(QMainWindow):
         """
         self.plotting_box = QGroupBox("CTF Calculation Options")
 
-        # Create widgets
-        self.temporal_env_check = QCheckBox("Temporal Envelope")   
-        self.spatial_env_check = QCheckBox("Spatial Envelope")
-        self.detector_env_check = QCheckBox("Detector Envelope")
+        # Create checkbox widgets
+        self.envelope_label = QLabel("Envelope Function")
+        self.temporal_env_check = QCheckBox("Temporal")   
+        self.spatial_env_check = QCheckBox("Spatial")
+        self.detector_env_check = QCheckBox("Detector")
+
+        # Create a horizontal layout for the checkboxes
+        checkbox_layout = QHBoxLayout()
+
+        # Add checkboxes to the horizontal layout
+        checkbox_layout.addWidget(self.temporal_env_check)
+        checkbox_layout.addWidget(self.spatial_env_check)
+        checkbox_layout.addWidget(self.detector_env_check)
   
         # Create a horizontal layout for the radio buttons
         button_layout = QHBoxLayout()
 
         # Create radio buttons for different CTF formats
+        self.ctf_label = QLabel("CTF Display Mode")
         self.radio_ctf = QRadioButton("CTF")
         self.radio_abs_ctf = QRadioButton("|CTF|")
         self.radio_ctf_squared = QRadioButton("CTF²")
@@ -224,9 +234,9 @@ class CTFSimGUI(QMainWindow):
         self.radio_ctf.setChecked(True)
 
         layout = QVBoxLayout()
-        layout.addWidget(self.temporal_env_check)
-        layout.addWidget(self.spatial_env_check)
-        layout.addWidget(self.detector_env_check)
+        layout.addWidget(self.envelope_label)
+        layout.addLayout(checkbox_layout)
+        layout.addWidget(self.ctf_label)
         layout.addLayout(button_layout)
 
         self.plotting_box.setLayout(layout)
@@ -254,11 +264,11 @@ class CTFSimGUI(QMainWindow):
         """
         self.plot_tabs = QTabWidget()
         self.plot_tabs.setStyleSheet(QTABWIDGET_STYLE)
-        self.plot_tabs.addTab(self._build_1d_ctf_tab(), "1D-CTF")
-        self.plot_tabs.addTab(self._build_2d_ctf_tab(), "2D-CTF")
-        self.plot_tabs.addTab(self._build_ice_ctf_tab(), "ICE")
-        self.plot_tabs.addTab(self._build_tomo_ctf_tab(), "TOMO")
-        self.plot_tabs.addTab(self._build_image_ctf_tab(), "IMAGE")
+        self.plot_tabs.addTab(self._build_1d_ctf_tab(), "1D")
+        self.plot_tabs.addTab(self._build_2d_ctf_tab(), "2D")
+        self.plot_tabs.addTab(self._build_ice_ctf_tab(), "Thickness")
+        self.plot_tabs.addTab(self._build_tomo_ctf_tab(), "Tilt")
+        self.plot_tabs.addTab(self._build_image_ctf_tab(), "Image")
 
     def _build_1d_ctf_tab(self):
         """
@@ -275,7 +285,8 @@ class CTFSimGUI(QMainWindow):
         layout_1d.addWidget(self.canvas_1d)
 
         display_1d = QHBoxLayout()
-        display_1d.addStretch()
+        # display_1d.addStretch()
+
         display_1d.addLayout(self._build_axis_control(
             "plot_1d",
             x_min_range=(-0.1, 1), x_min_value=0,
@@ -284,26 +295,35 @@ class CTFSimGUI(QMainWindow):
             y_max_range=(-1, 1.1), y_max_value=1
         ))
 
-        self.show_temp = QCheckBox("Temporal Envelope")
+        self.show_temp = QCheckBox("Temporal Envelope    ")
         self.show_spatial = QCheckBox("Spatial Envelope")
-        self.show_detector = QCheckBox("Detector Envelope")
+        self.show_detector = QCheckBox("Detector Envelope    ")
         self.show_total = QCheckBox("Total Envelope")
         self.show_y0 = QCheckBox("y=0 dotted line")
         self.show_legend = QCheckBox("Legend")
 
-        display_1d.addStretch() 
-        display_1d.addWidget(self.show_temp)
-        display_1d.addStretch()        
-        display_1d.addWidget(self.show_spatial)
-        display_1d.addStretch() 
-        display_1d.addWidget(self.show_detector)
-        display_1d.addStretch() 
-        display_1d.addWidget(self.show_total)
-        display_1d.addStretch() 
-        display_1d.addWidget(self.show_y0)
-        display_1d.addStretch() 
-        display_1d.addWidget(self.show_legend)
+        display_1d.addSpacerItem(QSpacerItem(30, 0, QSizePolicy.Fixed, QSizePolicy.Minimum)) 
+
+        plotting_options = QGridLayout()
+
+        plotting_options.addWidget(QLabel("Plotting    "), 0, 0)
+        plotting_options.addWidget(QLabel("Options    "), 1, 0)
+        plotting_options.addWidget(self.show_temp, 0, 1)
+        plotting_options.addWidget(self.show_spatial, 1, 1)
+        plotting_options.addWidget(self.show_detector, 0, 2)
+        plotting_options.addWidget(self.show_total, 1, 2)
+        plotting_options.addWidget(self.show_y0, 0, 3)
+        plotting_options.addWidget(self.show_legend, 1, 3)
+
+        display_1d.addLayout(plotting_options)
         display_1d.addStretch()
+
+        self.info_button_1d = self._create_info_button()
+        self.toggle_button_1d = self._create_toggle_button()
+        display_1d.addLayout(self._create_tab_buttons(
+            self.info_button_1d,
+            self.toggle_button_1d
+        ))
 
         display_control_1d = QGroupBox()
         display_control_1d.setLayout(display_1d)
@@ -328,7 +348,7 @@ class CTFSimGUI(QMainWindow):
         layout_2d.addWidget(self.canvas_2d)
 
         display_2d = QHBoxLayout()
-        display_2d.addStretch()
+        # display_2d.addStretch()
         display_2d.addLayout(self._build_axis_control(
             "plot_2d",
             x_min_range=(-0.5, 0.5), x_min_value=-0.5,
@@ -368,6 +388,13 @@ class CTFSimGUI(QMainWindow):
         display_2d.addStretch()
         display_2d.addWidget(self.defocus_az_slider_2d)
         display_2d.addStretch()
+        
+        self.info_button_2d = self._create_info_button()
+        self.toggle_button_2d = self._create_toggle_button()
+        display_2d.addLayout(self._create_tab_buttons(
+            self.info_button_2d,
+            self.toggle_button_2d
+        ))
 
         display_control_2d = QGroupBox()
         display_control_2d.setLayout(display_2d)
@@ -394,7 +421,7 @@ class CTFSimGUI(QMainWindow):
         self.canvas_ice.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Allow canvas to expand fully
 
         self.ice_thickness_slider = LabeledSlider("Ice Thickness (nm)", min_value=1, max_value=1000, step=1, value_format="{:.0f}" )
-        self.xlim_slider_ice = LabeledSlider("X-axis Limit (Å⁻¹)", min_value=0.1, max_value=1.1, step=0.01, value_format="{:.2f}" )
+        self.xlim_slider_ice = LabeledSlider("1D X-axis Limit (Å⁻¹)", min_value=0.1, max_value=1.1, step=0.01, value_format="{:.2f}" )
         self.defocus_diff_slider_ice = LabeledSlider("Defocus Ast. (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}")
         self.defocus_az_slider_ice = LabeledSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}") 
 
@@ -403,12 +430,6 @@ class CTFSimGUI(QMainWindow):
         layout_ice.addWidget(self.canvas_ice)
 
         display_ice = QHBoxLayout()
-
-        display_ice.addStretch()
-        display_ice.addWidget(self.ice_thickness_slider)
-        display_ice.addStretch() 
-        display_ice.addWidget(self.xlim_slider_ice)
-        display_ice.addStretch()
 
         scale_ice = QGridLayout()
         self.freq_scale_ice = QDoubleSpinBox()
@@ -432,11 +453,21 @@ class CTFSimGUI(QMainWindow):
 
         display_ice.addLayout(scale_ice)
         display_ice.addStretch()
-   
+        display_ice.addWidget(self.xlim_slider_ice)
+        display_ice.addStretch()
+        display_ice.addWidget(self.ice_thickness_slider)
+        display_ice.addStretch() 
         display_ice.addWidget(self.defocus_diff_slider_ice)
         display_ice.addStretch()
         display_ice.addWidget(self.defocus_az_slider_ice)
         display_ice.addStretch()
+
+        self.info_button_ice = self._create_info_button()
+        self.toggle_button_ice = self._create_toggle_button()
+        display_ice.addLayout(self._create_tab_buttons(
+            self.info_button_ice,
+            self.toggle_button_ice
+        ))
 
         display_control_ice = QGroupBox()
         display_control_ice.setLayout(display_ice)
@@ -474,12 +505,6 @@ class CTFSimGUI(QMainWindow):
 
         display_tomo = QHBoxLayout()
 
-        display_tomo.addStretch()
-        display_tomo.addWidget(self.sample_thickness_slider_tomo)
-        display_tomo.addStretch() 
-        display_tomo.addWidget(self.tilt_slider_tomo)
-        display_tomo.addStretch()
-
         scale_tomo = QGridLayout()
         self.sample_size_tomo = QDoubleSpinBox()
         self.sample_size_tomo.setRange(0.4, 2)
@@ -503,10 +528,21 @@ class CTFSimGUI(QMainWindow):
         display_tomo.addLayout(scale_tomo)
         display_tomo.addStretch()
 
+        display_tomo.addWidget(self.sample_thickness_slider_tomo)
+        display_tomo.addStretch() 
+        display_tomo.addWidget(self.tilt_slider_tomo)
+        display_tomo.addStretch()
         display_tomo.addWidget(self.defocus_diff_slider_tomo)
         display_tomo.addStretch()
         display_tomo.addWidget(self.defocus_az_slider_tomo)
         display_tomo.addStretch()
+
+        self.info_button_tomo = self._create_info_button()
+        self.toggle_button_tomo = self._create_toggle_button()
+        display_tomo.addLayout(self._create_tab_buttons(
+            self.info_button_tomo,
+            self.toggle_button_tomo
+        ))
 
         display_control_tomo = QGroupBox()
         display_control_tomo.setLayout(display_tomo)
@@ -535,11 +571,16 @@ class CTFSimGUI(QMainWindow):
 
         # Create a button for uploading image
         self.upload_btn = QPushButton("Upload Image")
+        self.upload_btn.setFixedHeight(18)
+        self.upload_btn.setStyleSheet(TAB_BUTTON_STYLE)
 
         # Create a button for contrast inversion
         self.invert_btn = QPushButton("Invert Image")
+        self.invert_btn.setFixedHeight(18)
+        self.invert_btn.setStyleSheet(TAB_BUTTON_STYLE)
 
         display_image_btn_group = QVBoxLayout()
+        display_image_btn_group.setSpacing(4)
         display_image_btn_group.addWidget(self.upload_btn)
         display_image_btn_group.addWidget(self.invert_btn)
         
@@ -585,8 +626,7 @@ class CTFSimGUI(QMainWindow):
         contrast_image.addWidget(QLabel("FFT Contrast (%): "), 1, 0)
         contrast_image.addWidget(self.contrast_scale_fft, 1, 1)
 
-        # Create sliders for tilt angle and sample_thickness
-        self.sample_thickness_slider_image = LabeledSlider("Sample Thickness (nm)", min_value=1, max_value=1000, step=1, value_format="{:.0f}" )
+        # Create sliders
         self.defocus_diff_slider_image = LabeledSlider("Defocus Ast. (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}")
         self.defocus_az_slider_image = LabeledSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}") 
 
@@ -596,19 +636,30 @@ class CTFSimGUI(QMainWindow):
 
         display_image = QHBoxLayout()
 
-        display_image.addStretch()
         display_image.addLayout(display_image_btn_group)
         display_image.addStretch()
         display_image.addLayout(scale_image)
         display_image.addStretch()
         display_image.addLayout(contrast_image)
         display_image.addStretch()
-        display_image.addWidget(self.sample_thickness_slider_image)
-        display_image.addStretch()        
+
+        self.contrast_sync_checkbox = QCheckBox("Sync Greyscale")
+        self.contrast_sync_checkbox.setChecked(False)
+        self.contrast_sync_checkbox.setToolTip("Synchronize greyscale between original and convolved images")
+        display_image.addWidget(self.contrast_sync_checkbox)
+        display_image.addStretch()
+                 
         display_image.addWidget(self.defocus_diff_slider_image)
         display_image.addStretch()
         display_image.addWidget(self.defocus_az_slider_image)
         display_image.addStretch()
+
+        self.info_button_image = self._create_info_button()
+        self.toggle_button_image = self._create_toggle_button()
+        display_image.addLayout(self._create_tab_buttons(
+            self.info_button_image,
+            self.toggle_button_image
+        ))
 
         display_control_image = QGroupBox()
         display_control_image.setLayout(display_image)
@@ -698,6 +749,31 @@ class CTFSimGUI(QMainWindow):
         grid_layout.addWidget(y_max, 1, 4)
 
         return grid_layout 
+    
+    def _create_info_button(self):
+        info_button = QPushButton("?")
+        info_button.setFixedSize(18, 18)
+        info_button.setToolTip("Additional info")
+        info_button.setStyleSheet(INFO_BUTTON_STYLE)
+        
+        return info_button
+    
+    def _create_toggle_button(self):
+        toggle_button = QPushButton("𝒱")
+        toggle_button.setCheckable(True)
+        toggle_button.setFixedSize(18, 18)
+        toggle_button.setToolTip("Show/Hide annotation")
+        toggle_button.setStyleSheet(INFO_BUTTON_STYLE)
+
+        return toggle_button
+    
+    def _create_tab_buttons(self, info_button, toggle_button):
+        button_group = QVBoxLayout()
+        button_group.setSpacing(4)
+        button_group.addWidget(info_button)
+        button_group.addWidget(toggle_button)
+
+        return button_group
 
 
 def test_gui() -> None:

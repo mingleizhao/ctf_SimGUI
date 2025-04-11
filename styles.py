@@ -19,16 +19,23 @@ QSlider::handle:horizontal {
     border-radius: 9px;
     margin: -6px 0;
 }
+
+QSlider::handle:hover {
+    background-color: #2980b9;
+}
+
 QSlider::groove:horizontal {
     height: 6px; /* Groove size */
     background-color: #d3d3d3; /* Light gray */
     border-radius: 3px;
     margin: 0px;
 }
+
 QSlider::sub-page:horizontal {
     /* background-color: #2980b9; /* Darker blue for filled portion */ */
     border-radius: 3px;
 }
+
 QSlider::add-page:horizontal {
     background-color: #e0e0e0;
     border-radius: 3px;
@@ -43,6 +50,7 @@ QGroupBox {
     border: 1px solid #4A4A4A;
     border-radius: 6px;
 }
+
 QGroupBox::title {
     subcontrol-origin: margin;
     subcontrol-position: top left;
@@ -82,8 +90,42 @@ QTabBar::tab {
     border: 1px solid #4A4A4A;
 }
 
-QTabBar::tab:selected {
+QTabBar::tab:hover {
     background: lightblue;
 }
 
+QTabBar::tab:selected {
+    background: #2980b9;
+}
+
+"""
+
+TAB_BUTTON_STYLE = """
+QPushButton {
+    border-radius: 4px;
+    padding: 0px 8px;
+    background-color: lightblue;
+}
+
+QPushButton:hover {
+    background-color: #2980b9;
+}
+"""
+
+INFO_BUTTON_STYLE = """
+QPushButton {
+    border-radius: 4px;
+    background-color: lightblue;
+    color: white;
+    font-weight: bold;
+}
+
+QPushButton:hover {
+    background-color: #2980b9;
+}
+
+QPushButton:checked {
+    background-color: #3498db;
+    color: white;
+}
 """
