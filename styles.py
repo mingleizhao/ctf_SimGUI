@@ -119,6 +119,8 @@ QPushButton {
     background-color: lightblue;
     color: white;
     font-weight: bold;
+    font-family: "Georgia", "Times New Roman", serif;
+    font-style: italic;
 }
 
 QPushButton:hover {

@@ -765,7 +765,8 @@ class CTFSimGUI(QMainWindow):
         return info_button
     
     def _create_toggle_button(self):
-        toggle_button = QPushButton("𝒱")
+        # toggle_button = QPushButton("𝒱")
+        toggle_button = QPushButton("V")
         toggle_button.setCheckable(True)
         toggle_button.setFixedSize(18, 18)
         toggle_button.setToolTip("Show/Hide annotation")
