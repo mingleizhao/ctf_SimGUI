@@ -336,76 +336,47 @@ class AppController(CTFSimGUI):
         self.canvas_image.fig.suptitle("Image Modulation by CTF", fontsize=18, fontweight='bold')
         self.canvas_image.fig.subplots_adjust(hspace=0.28, top=0.9, bottom=0.08)
 
-        # read and display default image
-        self.image_data = imread(self.default_image)
-        self.image_original = self.canvas_image.axes[1].imshow(self.image_data, cmap='Greys')
-        self.canvas_image.axes[1].set_title("Original Image")
-        self.canvas_image.axes[1].set_xlabel("Pixel X")
-        self.canvas_image.axes[1].set_ylabel("Pixel Y")
+        # Load default image
+        self.image_data = self._load_and_prepare_image(self.default_image)
+        self.image_contrast_inverted = False  # initialize instance variable 
 
-        # display fft of the sample image
+        # FFT
         self.image_data_fft = np.fft.fftshift(np.fft.fft2(self.image_data))
         self.scaled_fft = np.abs(self.image_data_fft)
+
+        # CTF
+        ctf_matrix = self.ctf_2d.dampened_ctf_2d(self.fx, self.fy)
+        self.scaled_convolved = np.abs(np.fft.ifft2(self.image_data_fft * ctf_matrix))
+
+        # Setup axes
+        self.image_original = self.canvas_image.axes[1].imshow(self.image_data, cmap='Greys')
         vmin, vmax = np.percentile(self.scaled_fft,
                                    [100 - self.contrast_scale_fft.value(), self.contrast_scale_fft.value()])
-        self.image_fft = self.canvas_image.axes[2].imshow(self.scaled_fft,  
-                                         cmap='Greys', 
-                                         vmin=vmin, 
-                                         vmax=vmax,
-                                         origin='lower')
-        self.canvas_image.axes[2].set_title("Fast Fourier Transform")
-        self.canvas_image.axes[2].set_xlabel("Spatial Frequency X (Å⁻¹)")
-        self.canvas_image.axes[2].set_ylabel("Spatial Frequency Y (Å⁻¹)")
-        self.canvas_image.axes[2].set_autoscale_on(False)
+        self.image_fft = self.canvas_image.axes[2].imshow(self.scaled_fft, 
+                                                          vmin=vmin,
+                                                          vmax=vmax,
+                                                          cmap='Greys', 
+                                                          origin='lower')
+        self.image_ctf_convolve = self.canvas_image.axes[4].imshow(ctf_matrix, cmap='Greys', vmin=-1, vmax=1, origin='lower', extent=(-0.5, 0.5, -0.5, 0.5))
+        self.image_convolved = self.canvas_image.axes[3].imshow(self.scaled_convolved, cmap='Greys')
 
-        # display the 2D ctf function
-        ctf_matrix = self.ctf_2d.dampened_ctf_2d(self.fx, self.fy)
-        self.image_ctf_convolve = self.canvas_image.axes[4].imshow(
-            ctf_matrix, 
-            extent=(-0.5, 0.5, -0.5, 0.5), 
-            cmap='Greys', 
-            vmin=-1, 
-            vmax=1,
-            origin = 'lower',
-        )
+        # Add titles and labels
+        self.canvas_image.axes[1].set_title("Original Image")
+        self.canvas_image.axes[2].set_title("Fast Fourier Transform")
+        self.canvas_image.axes[3].set_title("Convolved Image")
         self.canvas_image.axes[4].set_title("Contrast Transfer Function")
-        self.canvas_image.axes[4].set_xlabel("Spatial Frequency X (Å⁻¹)")
-        self.canvas_image.axes[4].set_ylabel("Spatial Frequency Y (Å⁻¹)")
+
+        for i in [1, 2, 3, 4]:
+            self.canvas_image.axes[i].set_xlabel("Pixel X" if i in [1, 3] else "Spatial Frequency X (Å⁻¹)")
+            self.canvas_image.axes[i].set_ylabel("Pixel Y" if i in [1, 3] else "Spatial Frequency Y (Å⁻¹)")
+
+        # Colorbars
+        self.canvas_image.fig.colorbar(self.image_original, ax=self.canvas_image.axes[1])
+        self.canvas_image.fig.colorbar(self.image_fft, ax=self.canvas_image.axes[2])
+        self.canvas_image.fig.colorbar(self.image_convolved, ax=self.canvas_image.axes[3])
+        self.canvas_image.fig.colorbar(self.image_ctf_convolve, ax=self.canvas_image.axes[4])
 
         self._update_ticks_for_fft()
-
-        # display the convolved image
-        image_data_convolved = np.fft.ifft2(self.image_data_fft * ctf_matrix)
-        self.scaled_convolved = np.abs(image_data_convolved)
-        self.image_convolved = self.canvas_image.axes[3].imshow(self.scaled_convolved, cmap='Greys')#, vmin=vmin, vmax=vmax)
-        self.canvas_image.axes[3].set_title("Convolved Image")
-        self.canvas_image.axes[3].set_xlabel("Pixel X")
-        self.canvas_image.axes[3].set_ylabel("Pixel Y")
-
-        # setup scale bars
-        self.canvas_image.fig.colorbar(
-            self.image_original, 
-            ax=self.canvas_image.axes[1], 
-            orientation='vertical',  
-        )
-        self.canvas_image.fig.colorbar(
-            self.image_fft, 
-            ax=self.canvas_image.axes[2], 
-            orientation='vertical',  
-        )
-        self.canvas_image.fig.colorbar(
-            self.image_convolved, 
-            ax=self.canvas_image.axes[3], 
-            orientation='vertical',  
-        )
-        self.canvas_image.fig.colorbar(
-            self.image_ctf_convolve, 
-            ax=self.canvas_image.axes[4], 
-            orientation='vertical',  
-        )
-
-        # An instance varibale to control the contrast
-        self.image_contrast_inverted = False 
 
     def _setup_annotations(self):
         # An instance variable to control the annotation
@@ -833,6 +804,9 @@ class AppController(CTFSimGUI):
             elif value == 2:  # Ice tab
                 self.defocus_diff_slider_ice.set_value(self.ctf_2d.df_diff)
                 self.defocus_az_slider_ice.set_value(self.ctf_2d.df_az)
+            elif value == 4:  # Image tab
+                self.defocus_diff_slider_image.set_value(self.ctf_2d.df_diff)
+                self.defocus_az_slider_image.set_value(self.ctf_2d.df_az)
 
         self.update_plot()
 
@@ -1389,64 +1363,43 @@ class AppController(CTFSimGUI):
 
         # Apply the transformation
         self.sample_rect.set_transform(transform)
-    
-    def _handle_upload_image(self):
-        """
-        Open a file dialog for users to select an image file. Supports common formats (PNG, JPG, TIFF, etc.).
-        If the image is:
-        - Exactly 400x400: loads as-is.
-        - Smaller: pads the image with white pixels to reach 400x400.
-        - Larger: resizes the image to 400x400.
 
-        Converts all images to grayscale and updates the display in subplot 1.
+    def _handle_upload_image(self) -> None:
+        """
+        Process user supplied image and update the image tab. Supports common formats (PNG, JPG, TIFF, etc.).
         """
         supported_formats = "Image Files (*.png *.jpg *.jpeg *.tif *.tiff *.bmp);;All Files (*)"
         file_path, _ = QFileDialog.getOpenFileName(self, "Select Image", "", supported_formats)
 
         if not file_path:
-            return  # User cancelled
+            return
 
         try:
-            # Load and convert to grayscale
-            image = Image.open(file_path).convert("L")
-            
-
+            self.image_data = self._load_and_prepare_image(file_path)
         except Exception as e:
             QMessageBox.critical(self, "Image Load Error", f"Failed to load image:\n{str(e)}")
+            return
 
-        # reset scale widgets
+        # Reset sliders
         self.size_scale_image.setValue(100)
         self.size_scale_fft.setValue(100)
         self.contrast_scale_image.setValue(100)
         self.contrast_scale_fft.setValue(99)
 
-        # Crop to square centered on the image
-        width, height = image.size
-        crop_size = min(width, height)
-        left = (width - crop_size) // 2
-        upper = (height - crop_size) // 2
-        right = left + crop_size
-        lower = upper + crop_size
-        image_cropped = image.crop((left, upper, right, lower))
-
-        # Resize to self.image_size
-        image_resized = image_cropped.resize((self.image_size, self.image_size), Image.LANCZOS)
-
-        # Update plot and store image
-        self.image_data = np.array(image_resized) / 255.0
         self.image_data_fft = np.fft.fftshift(np.fft.fft2(self.image_data))
         self.scaled_fft = np.abs(self.image_data_fft)
+
         vmin, vmax = np.percentile(self.scaled_fft, 
-                                    [100 - self.contrast_scale_fft.value(), self.contrast_scale_fft.value()])
+                                [100 - self.contrast_scale_fft.value(), self.contrast_scale_fft.value()])
+
         self.image_original.set_data(self.image_data)
         self.image_fft.set_data(self.scaled_fft)
         self.image_fft.set_clim(vmin=vmin, vmax=vmax)
-        self._update_ticks_for_fft()       
 
+        self._update_ticks_for_fft()
         self.update_plot()
-        
 
-    def _update_ticks_for_fft(self):
+    def _update_ticks_for_fft(self) -> None:
         # Get tick positions and labels from the CTF plot
         xticks = self.canvas_image.axes[4].get_xticks()
         xticklabels = [label.get_text() for label in self.canvas_image.axes[4].get_xticklabels()]
@@ -1461,7 +1414,7 @@ class AppController(CTFSimGUI):
         self.canvas_image.axes[2].yaxis.set_major_locator(FixedLocator(ypos))
         self.canvas_image.axes[2].set_yticklabels(yticklabels)
 
-    def _invert_contrast(self):
+    def _invert_contrast(self) -> None:
         # Toggle the contrast state
         self.image_contrast_inverted = not self.image_contrast_inverted
         
@@ -1475,7 +1428,7 @@ class AppController(CTFSimGUI):
 
         self.canvas_image.draw_idle()
 
-    def _handle_annotation_toggle(self, checked):
+    def _handle_annotation_toggle(self, checked) -> None:
         self.show_annotation = checked  # Sync instance variable
 
         # Sync all buttons to this state
@@ -1486,6 +1439,29 @@ class AppController(CTFSimGUI):
                 btn.setChecked(checked)
                 btn.blockSignals(False)
 
+    def _load_and_prepare_image(self, path: str) -> np.ndarray:
+        """
+        Load an image, convert to grayscale, crop to square, resize to self.image_size, and normalize.
+
+        Args:
+            path (str): Path to the image file.
+
+        Returns:
+            np.ndarray: A (self.image_size x self.image_size) normalized grayscale image.
+        """
+        image = Image.open(path).convert("L")
+
+        width, height = image.size
+        crop_size = min(width, height)
+        left = (width - crop_size) // 2
+        upper = (height - crop_size) // 2
+        right = left + crop_size
+        lower = upper + crop_size
+        image = image.crop((left, upper, right, lower))
+        image = image.resize((self.image_size, self.image_size), Image.LANCZOS)
+    
+        return np.array(image) / 255.0
+
     def show_info(self) -> None:
         """Show additonal info for the specific tab
         """
@@ -1495,6 +1471,7 @@ class AppController(CTFSimGUI):
                     "<b>Notes:</b><br><br>"
                     "1) The controls on the left panel affect CTF calculations across all tabs.<br>"
                     "2) Tab-specific controls are located at the bottom of each tab.<br>"
+                    "3) Tabs '2D', 'Thickness', 'Image' share the same 2-D CTF model. <br>"
                     "3) The detector envelope models only the attenuation of the CTF at higher spatial frequencies due to the detector's DQE. "
                     "The actual impact of different detectors on image signal-to-noise ratio, based on varying DQE characteristics, is not simulated. "
                     "DQEs are modeled as polynomial functions of spatial frequency. <br><br>"

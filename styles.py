@@ -100,11 +100,12 @@ QTabBar::tab:selected {
 
 """
 
-TAB_BUTTON_STYLE = """
+BUTTON_STYLE = """
 QPushButton {
-    border-radius: 4px;
-    padding: 0px 8px;
+    border-radius: 6px;
+    padding: 4px 10px;
     background-color: lightblue;
+    font-weight: bold;
 }
 
 QPushButton:hover {

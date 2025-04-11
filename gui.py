@@ -11,7 +11,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from customized_widgets import LabeledSlider
 from models import DetectorConfigs
-from styles import LEFT_PANEL_QGROUPBOX_STYLE, RIGHT_PANEL_QGROUPBOX_STYLE, QTABWIDGET_STYLE, TAB_BUTTON_STYLE, INFO_BUTTON_STYLE
+from styles import LEFT_PANEL_QGROUPBOX_STYLE, RIGHT_PANEL_QGROUPBOX_STYLE, QTABWIDGET_STYLE, BUTTON_STYLE, INFO_BUTTON_STYLE
 
 
 class MplCanvas(FigureCanvasQTAgg):
@@ -250,6 +250,7 @@ class CTFSimGUI(QMainWindow):
 
         # Create buttons
         self.reset_button = QPushButton("Reset")
+        self.reset_button.setStyleSheet(BUTTON_STYLE)
         self.save_img_button = QPushButton("Save Plot")
         self.save_csv_button = QPushButton("Save CSV")
         
@@ -571,18 +572,7 @@ class CTFSimGUI(QMainWindow):
 
         # Create a button for uploading image
         self.upload_btn = QPushButton("Upload Image")
-        self.upload_btn.setFixedHeight(18)
-        self.upload_btn.setStyleSheet(TAB_BUTTON_STYLE)
-
-        # Create a button for contrast inversion
-        self.invert_btn = QPushButton("Invert Image")
-        self.invert_btn.setFixedHeight(18)
-        self.invert_btn.setStyleSheet(TAB_BUTTON_STYLE)
-
-        display_image_btn_group = QVBoxLayout()
-        display_image_btn_group.setSpacing(4)
-        display_image_btn_group.addWidget(self.upload_btn)
-        display_image_btn_group.addWidget(self.invert_btn)
+        self.upload_btn.setStyleSheet(BUTTON_STYLE)
         
         # Create spin boxes for size scaling 
         scale_image = QGridLayout()
@@ -636,17 +626,33 @@ class CTFSimGUI(QMainWindow):
 
         display_image = QHBoxLayout()
 
-        display_image.addLayout(display_image_btn_group)
+        display_image.addWidget(self.upload_btn)
         display_image.addStretch()
         display_image.addLayout(scale_image)
         display_image.addStretch()
         display_image.addLayout(contrast_image)
         display_image.addStretch()
 
+        # Create a checkbox for contrast sync
         self.contrast_sync_checkbox = QCheckBox("Sync Greyscale")
         self.contrast_sync_checkbox.setChecked(False)
+        self.contrast_sync_checkbox.setStyleSheet("""
+            QCheckBox {
+                padding: 0px 0px;
+            }
+        """)
         self.contrast_sync_checkbox.setToolTip("Synchronize greyscale between original and convolved images")
-        display_image.addWidget(self.contrast_sync_checkbox)
+        
+        # Create a button for contrast inversion
+        self.invert_btn = QPushButton("Invert Image")
+        self.invert_btn.setFixedHeight(26)
+        self.invert_btn.setToolTip("Invert greyscale of original and convolved images")
+
+        contrast_group = QVBoxLayout()
+        contrast_group.addWidget(self.contrast_sync_checkbox)
+        contrast_group.addWidget(self.invert_btn)        
+        
+        display_image.addLayout(contrast_group)
         display_image.addStretch()
                  
         display_image.addWidget(self.defocus_diff_slider_image)
