@@ -132,8 +132,8 @@ class CTFSimGUI(QMainWindow):
         
         self.voltage_slider = LabeledSlider("Voltage (KV)", min_value=80, max_value=1000, step=20, value_format="{:.0f}")       
         self.voltage_stability_slider = LabeledSlider("Voltage Stability", min_value=1e-9, max_value=1e-4, step=1e-9, value_format="{:.2e}", log_scale=True)       
-        self.electron_source_angle_slider = LabeledSlider("<b>e⁻<\b> Angle Spread (rad)", min_value=1e-5, max_value=1e-2, step=1e-5, value_format="{:.1e}", log_scale=True)        
-        self.electron_source_spread_slider = LabeledSlider("<b>e⁻<\b> Energy Spread (eV)", min_value=0, max_value=10, step=0.1, value_format="{:.1f}")
+        self.electron_source_angle_slider = LabeledSlider("<b>e⁻</b> Angle Spread (rad)", min_value=1e-5, max_value=1e-2, step=1e-5, value_format="{:.1e}", log_scale=True)        
+        self.electron_source_spread_slider = LabeledSlider("<b>e⁻</b> Energy Spread (eV)", min_value=0, max_value=10, step=0.1, value_format="{:.1f}")
         self.chromatic_aberr_slider = LabeledSlider("Chromatic Aberration (mm)", min_value=0., max_value=10, step=0.1, value_format="{:.1f}")
         self.spherical_aberr_slider = LabeledSlider("Spherical Aberration (mm)", min_value=0., max_value=10, step=0.1, value_format="{:.1f}")
         self.obj_lens_stability_slider = LabeledSlider("Objective Lens Stability", min_value=1e-9, max_value=1e-4, step=1e-9, value_format="{:.2e}", log_scale=True)
