@@ -84,6 +84,8 @@ class AppController(CTFSimGUI):
         self.defocus_az_slider_image.set_value(0)
         self.amplitude_contrast_slider.set_value(0.1)
         self.additional_phase_slider.set_value(0)
+        self.xlim_slider_1d.set_value(0.5)
+        self.ylim_slider_1d.set_value(1)
         self.xlim_slider_ice.set_value(0.5)
         self.temporal_env_check.setChecked(True)
         self.spatial_env_check.setChecked(True)
@@ -635,6 +637,8 @@ class AppController(CTFSimGUI):
         self.plot_2d_y_min.valueChanged.connect(self.update_plot_range)
         self.plot_2d_y_max.valueChanged.connect(self.update_plot_range)
         self.freq_scale_2d.valueChanged.connect(self.zoom_2d_ctf)
+        self.xlim_slider_1d.valueChanged.connect(lambda value: self.plot_1d_x_max.setValue(value))
+        self.ylim_slider_1d.valueChanged.connect(self.update_ylim_1d)
         self.xlim_slider_ice.valueChanged.connect(self.update_plot_range)
         self.freq_scale_ice.valueChanged.connect(self.zoom_2d_ctf)
         self.gray_scale_2d.valueChanged.connect(self.update_grayness)
@@ -820,6 +824,7 @@ class AppController(CTFSimGUI):
             self.line_ed[0].set_data(self.freqs_1d, self.wrap_func(self.ctf_1d.Ed(self.freqs_1d)))
             self.line_te[0].set_data(self.freqs_1d, self.wrap_func(self.ctf_1d.Etotal_1d(self.freqs_1d)))
             self.line_dc[0].set_data(self.freqs_1d, self.wrap_func(self.ctf_1d.dampened_ctf_1d(self.freqs_1d)))
+            # self.canvas_1d.axes[1].set_xlim(0, self.xlim_slider_1d.get_value())
             self.canvas_1d.draw_idle()
         elif self.plot_tabs.currentIndex() == 1:
             # Update 2D
@@ -829,7 +834,7 @@ class AppController(CTFSimGUI):
             # Update ice tab plots
             self.line_ice_ref[0].set_data(self.freqs_1d, self.wrap_func(self.ctf_1d.dampened_ctf_1d(self.freqs_1d)))
             self.line_ice[0].set_data(self.freqs_1d, self.wrap_func(self.ctf_1d.dampened_ctf_ice(self.freqs_1d)))
-            self.canvas_ice.axes[1].set_xlim(0, self.xlim_slider_ice.get_value())
+            # self.canvas_ice.axes[1].set_xlim(0, self.xlim_slider_ice.get_value())
             self.ice_image_ref.set_data(self.wrap_func(self.ctf_2d.dampened_ctf_2d(self.fx_fix, self.fy_fix)))
             self.ice_image.set_data(self.wrap_func(self.ctf_2d.dampened_ctf_ice(self.fx_fix, self.fy_fix)))
             self.canvas_ice.draw_idle()
@@ -867,6 +872,12 @@ class AppController(CTFSimGUI):
         if self.plot_tabs.currentIndex() == 0:
             self.canvas_1d.axes[1].set_xlim(self.plot_1d_x_min.value(), self.plot_1d_x_max.value())
             self.canvas_1d.axes[1].set_ylim(self.plot_1d_y_min.value(), self.plot_1d_y_max.value())
+            self.xlim_slider_1d.blockSignals(True)
+            self.xlim_slider_1d.set_value(self.plot_1d_x_max.value())
+            self.xlim_slider_1d.blockSignals(False)
+            self.ylim_slider_1d.blockSignals(True)
+            self.ylim_slider_1d.set_value(self.plot_1d_y_max.value())
+            self.ylim_slider_1d.blockSignals(False)
             self.canvas_1d.draw_idle()
         elif self.plot_tabs.currentIndex() == 1:
             self.canvas_2d.axes[1].set_xlim(self.plot_2d_x_min.value(), self.plot_2d_x_max.value())
@@ -875,6 +886,16 @@ class AppController(CTFSimGUI):
         elif self.plot_tabs.currentIndex() == 2:
             self.canvas_ice.axes[1].set_xlim(0, self.xlim_slider_ice.get_value())
             self.canvas_ice.draw_idle()
+
+    def update_ylim_1d(self, value) -> None:
+        """
+        Update Y limits of 1D CTF plot using slider.
+        """
+        self.plot_1d_y_max.setValue(value)
+        if self.radio_button_group.checkedButton() == self.radio_abs_ctf or self.radio_button_group.checkedButton() == self.radio_ctf_squared:
+            self.plot_1d_y_min.setValue(0)
+        else:
+            self.plot_1d_y_min.setValue(-value)
 
     def zoom_2d_ctf(self) -> None:
         """
@@ -1481,7 +1502,8 @@ class AppController(CTFSimGUI):
                     "1) The controls on the left panel affect CTF calculations across all tabs.<br>"
                     "2) Tab-specific controls are located at the bottom of each tab.<br>"
                     "3) Tabs '2D', 'Thickness', 'Image' share the same 2-D CTF model. <br>"
-                    "4) The detector envelope models only the attenuation of the CTF at higher spatial frequencies due to the detector's DQE. "
+                    "4) Positive defocus values indicate underfocus.<br>"
+                    "5) The detector envelope models only the attenuation of the CTF at higher spatial frequencies due to the detector's DQE. "
                     "The actual impact of different detectors on image signal-to-noise ratio, based on varying DQE characteristics, is not simulated. "
                     "DQEs are modeled as polynomial functions of spatial frequency. <br><br>"
                     "<b>Equations used:</b>"

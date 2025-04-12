@@ -132,8 +132,8 @@ class CTFSimGUI(QMainWindow):
         
         self.voltage_slider = LabeledSlider("Voltage (KV)", min_value=80, max_value=1000, step=20, value_format="{:.0f}")       
         self.voltage_stability_slider = LabeledSlider("Voltage Stability", min_value=1e-9, max_value=1e-4, step=1e-9, value_format="{:.2e}", log_scale=True)       
-        self.electron_source_angle_slider = LabeledSlider("Electron Source Angle (rad)", min_value=1e-5, max_value=1e-2, step=1e-5, value_format="{:.1e}", log_scale=True)        
-        self.electron_source_spread_slider = LabeledSlider("Electron Source Spread (eV)", min_value=0, max_value=10, step=0.1, value_format="{:.1f}")
+        self.electron_source_angle_slider = LabeledSlider("<b>e⁻<\b> Angle Spread (rad)", min_value=1e-5, max_value=1e-2, step=1e-5, value_format="{:.1e}", log_scale=True)        
+        self.electron_source_spread_slider = LabeledSlider("<b>e⁻<\b> Energy Spread (eV)", min_value=0, max_value=10, step=0.1, value_format="{:.1f}")
         self.chromatic_aberr_slider = LabeledSlider("Chromatic Aberration (mm)", min_value=0., max_value=10, step=0.1, value_format="{:.1f}")
         self.spherical_aberr_slider = LabeledSlider("Spherical Aberration (mm)", min_value=0., max_value=10, step=0.1, value_format="{:.1f}")
         self.obj_lens_stability_slider = LabeledSlider("Objective Lens Stability", min_value=1e-9, max_value=1e-4, step=1e-9, value_format="{:.2e}", log_scale=True)
@@ -286,14 +286,20 @@ class CTFSimGUI(QMainWindow):
         layout_1d.addWidget(self.canvas_1d)
 
         display_1d = QHBoxLayout()
-        # display_1d.addStretch()
 
+        self.xlim_slider_1d = LabeledSlider("X-axis Limit (Å⁻¹)", min_value=0.001, max_value=1.1, step=0.001, value_format="{:.3f}" )
+        self.ylim_slider_1d = LabeledSlider("y-axis Limit (Å⁻¹)", min_value=0.001, max_value=1.1, step=0.001, value_format="{:.3f}" )
+
+        display_1d.addWidget(self.xlim_slider_1d)
+        display_1d.addStretch()
+        display_1d.addWidget(self.ylim_slider_1d)
+        display_1d.addStretch()
         display_1d.addLayout(self._build_axis_control(
             "plot_1d",
             x_min_range=(-0.1, 1), x_min_value=0,
-            x_max_range=(0, 1.1), x_max_value=0.5,
+            x_max_range=(0.001, 1.1), x_max_value=0.5,
             y_min_range=(-1.1, 1), y_min_value=-1,
-            y_max_range=(-1, 1.1), y_max_value=1
+            y_max_range=(0.001, 1.1), y_max_value=1
         ))
 
         self.show_temp = QCheckBox("Temporal Envelope    ")
@@ -303,18 +309,18 @@ class CTFSimGUI(QMainWindow):
         self.show_y0 = QCheckBox("y=0 dotted line")
         self.show_legend = QCheckBox("Legend")
 
-        display_1d.addSpacerItem(QSpacerItem(30, 0, QSizePolicy.Fixed, QSizePolicy.Minimum)) 
+        display_1d.addStretch()
 
         plotting_options = QGridLayout()
 
-        plotting_options.addWidget(QLabel("Plotting    "), 0, 0)
-        plotting_options.addWidget(QLabel("Options    "), 1, 0)
-        plotting_options.addWidget(self.show_temp, 0, 1)
-        plotting_options.addWidget(self.show_spatial, 1, 1)
-        plotting_options.addWidget(self.show_detector, 0, 2)
-        plotting_options.addWidget(self.show_total, 1, 2)
-        plotting_options.addWidget(self.show_y0, 0, 3)
-        plotting_options.addWidget(self.show_legend, 1, 3)
+        # plotting_options.addWidget(QLabel("Plotting    "), 0, 0)
+        # plotting_options.addWidget(QLabel("Options    "), 1, 0)
+        plotting_options.addWidget(self.show_temp, 0, 0)
+        plotting_options.addWidget(self.show_spatial, 1, 0)
+        plotting_options.addWidget(self.show_detector, 0, 1)
+        plotting_options.addWidget(self.show_total, 1, 1)
+        plotting_options.addWidget(self.show_y0, 0, 2)
+        plotting_options.addWidget(self.show_legend, 1, 2)
 
         display_1d.addLayout(plotting_options)
         display_1d.addStretch()
@@ -349,14 +355,6 @@ class CTFSimGUI(QMainWindow):
         layout_2d.addWidget(self.canvas_2d)
 
         display_2d = QHBoxLayout()
-        # display_2d.addStretch()
-        display_2d.addLayout(self._build_axis_control(
-            "plot_2d",
-            x_min_range=(-0.5, 0.5), x_min_value=-0.5,
-            x_max_range=(-0.5, 0.5), x_max_value=0.5,
-            y_min_range=(-0.5, 0.5), y_min_value=-1,
-            y_max_range=(-0.5, 0.5), y_max_value=1
-        ))
 
         scale_2d = QGridLayout()
         self.freq_scale_2d = QDoubleSpinBox()
@@ -378,8 +376,15 @@ class CTFSimGUI(QMainWindow):
         scale_2d.addWidget(QLabel("Max Gray Scale: "), 1, 0)
         scale_2d.addWidget(self.gray_scale_2d, 1, 1)
 
-        display_2d.addStretch()
         display_2d.addLayout(scale_2d)
+        display_2d.addStretch()
+        display_2d.addLayout(self._build_axis_control(
+            "plot_2d",
+            x_min_range=(-0.5, 0.5), x_min_value=-0.5,
+            x_max_range=(-0.5, 0.5), x_max_value=0.5,
+            y_min_range=(-0.5, 0.5), y_min_value=-1,
+            y_max_range=(-0.5, 0.5), y_max_value=1
+        ))
         display_2d.addStretch()
 
         self.defocus_diff_slider_2d = LabeledSlider("Defocus Ast. (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}")
@@ -422,7 +427,7 @@ class CTFSimGUI(QMainWindow):
         self.canvas_ice.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Allow canvas to expand fully
 
         self.ice_thickness_slider = LabeledSlider("Ice Thickness (nm)", min_value=1, max_value=1000, step=1, value_format="{:.0f}" )
-        self.xlim_slider_ice = LabeledSlider("1D X-axis Limit (Å⁻¹)", min_value=0.1, max_value=1.1, step=0.01, value_format="{:.2f}" )
+        self.xlim_slider_ice = LabeledSlider("X-axis Limit (Å⁻¹)", min_value=0.1, max_value=1.1, step=0.01, value_format="{:.2f}" )
         self.defocus_diff_slider_ice = LabeledSlider("Defocus Ast. (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}")
         self.defocus_az_slider_ice = LabeledSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}") 
 
