@@ -2,29 +2,31 @@ import os
 import math
 import numpy as np
 import pandas as pd
-from gui import CTFSimGUI
-from models import CTFIce1D, CTFIce2D
-import matplotlib.transforms as transforms
+from matplotlib import transforms
 from matplotlib.colors import Normalize
 from matplotlib.patches import Rectangle
 from matplotlib.ticker import FuncFormatter, FixedLocator
 from PyQt5.QtWidgets import QApplication, QFileDialog, QMessageBox
 from PIL import Image
+from models import CTFIce1D, CTFIce2D
+from gui import CTFSimGUI
 
 
 class AppController(CTFSimGUI):
     """
-    A controller class that extends the `CTFSimGUI` main window to manage 
+    A controller class that extends the `CTFSimGUI` main window to manage
     the Contrast Transfer Function (CTF) simulation in both 1D and 2D modes.
-    
+
     This class sets up frequency data, initializes CTF models, configures default GUI values,
     and handles user interactions (e.g., slider changes, resets, tab switching, saving plots).
     """
 
-    def __init__(self, 
-                 line_points: int = 10000, 
-                 image_size: int = 400, 
-                 default_image: str = "sample_images/sample_image.png") -> None:
+    def __init__(
+        self,
+        line_points: int = 10000,
+        image_size: int = 400,
+        default_image: str = "sample_images/sample_image.png",
+    ) -> None:
         """
         Initialize the AppController by creating CTF models, setting up the GUI,
         and establishing event handlers.
@@ -38,7 +40,7 @@ class AppController(CTFSimGUI):
         self.line_points: int = line_points
         self.image_size: int = image_size
         self.default_image: str = default_image
-        
+
         # Initialize models
         self.ctf_1d: CTFIce1D = CTFIce1D()
         self.ctf_2d: CTFIce2D = CTFIce2D()
@@ -130,92 +132,135 @@ class AppController(CTFSimGUI):
         self._setup_tomo_plot()
         self._setup_image_plot()
         self._setup_annotations()
-  
+
     def _setup_1d_plot(self):
         # 1D Plot
-        self.canvas_1d.axes[1].set_title("1-D Contrast Transfer Function", fontsize=18, fontweight='bold', pad=20)
+        self.canvas_1d.axes[1].set_title(
+            "1-D Contrast Transfer Function",
+            fontsize=self.font_sizes["large"],
+            fontweight="bold",
+            pad=20,
+        )
         self.canvas_1d.axes[1].set_xlim(0, 0.5)
-        self.canvas_1d.axes[1].tick_params(axis='both', which='major', labelsize=14)
+        self.canvas_1d.axes[1].tick_params(
+            axis="both", which="major", labelsize=self.font_sizes["small"]
+        )
         self.canvas_1d.axes[1].set_ylim(-1, 1)
-        self.canvas_1d.axes[1].set_xlabel("Spatial Frequency (Å⁻¹)", fontsize=16)
+        self.canvas_1d.axes[1].set_xlabel(
+            "Spatial Frequency (Å⁻¹)", fontsize=self.font_sizes["medium"]
+        )
 
-        self.line_y0 = self.canvas_1d.axes[1].axhline(y=0, color='grey', linestyle='--', alpha=0.8)
+        self.line_y0 = self.canvas_1d.axes[1].axhline(y=0, color="grey", linestyle="--", alpha=0.8)
 
         self.line_et = self.canvas_1d.axes[1].plot(
             self.freqs_1d,
             self.ctf_1d.Et(self.freqs_1d),
             label="Temporal Envelope",
             linestyle="dashed",
-            linewidth=3
+            linewidth=self.linewidth,
         )
         self.line_es = self.canvas_1d.axes[1].plot(
             self.freqs_1d,
             self.ctf_1d.Es_1d(self.freqs_1d),
             label="Spacial Envelope",
             linestyle="dashed",
-            linewidth=3
+            linewidth=self.linewidth,
         )
         self.line_ed = self.canvas_1d.axes[1].plot(
             self.freqs_1d,
             self.ctf_1d.Ed(self.freqs_1d),
             label="Detector Envelope",
             linestyle="dashed",
-            linewidth=3
+            linewidth=self.linewidth,
         )
         self.line_te = self.canvas_1d.axes[1].plot(
             self.freqs_1d,
             self.ctf_1d.Etotal_1d(self.freqs_1d),
             label="Total Envelope",
-            linewidth=3
+            linewidth=self.linewidth,
         )
         self.line_dc = self.canvas_1d.axes[1].plot(
             self.freqs_1d,
             self.ctf_1d.dampened_ctf_1d(self.freqs_1d),
             label="Microscope CTF",
-            linewidth=3
+            linewidth=self.linewidth,
         )
-        self.legend_1d = self.canvas_1d.axes[1].legend(fontsize=16)
+        self.legend_1d = self.canvas_1d.axes[1].legend(fontsize=self.font_sizes["medium"])
 
     def _setup_2d_plot(self):
         # 2D Plot
-        self.canvas_2d.axes[1].set_title("2-D Contrast Transfer Function", fontsize=18, fontweight='bold', pad=20)
+        self.canvas_2d.axes[1].set_title(
+            "2-D Contrast Transfer Function",
+            fontsize=self.font_sizes["large"],
+            fontweight="bold",
+            pad=20,
+        )
         self.image = self.canvas_2d.axes[1].imshow(
-            self.ctf_2d.dampened_ctf_2d(self.fx_fix, self.fy_fix), 
-            extent=(-0.5, 0.5, -0.5, 0.5), 
-            cmap='Greys', 
-            vmin=-1, 
+            self.ctf_2d.dampened_ctf_2d(self.fx_fix, self.fy_fix),
+            extent=(-0.5, 0.5, -0.5, 0.5),
+            cmap="Greys",
+            vmin=-1,
             vmax=1,
-            origin = 'lower',
+            origin="lower",
         )
 
-        self.canvas_2d.axes[1].tick_params(axis='both', labelsize=14)
-        self.canvas_2d.axes[1].set_xlabel("Spatial Frequency X (Å⁻¹)", fontsize=14)
-        self.canvas_2d.axes[1].set_ylabel("Spatial Frequency Y (Å⁻¹)", fontsize=14)
-
-        cbar_2D = self.canvas_ice.fig.colorbar(
-            self.image, 
-            ax=self.canvas_2d.axes[1], 
-            orientation='horizontal',  
-            shrink=0.5,  # Adjust the size of the color bar
-            pad=0.01  # Adjust the spacing between the color bar and the plot
+        self.canvas_2d.axes[1].tick_params(axis="both", labelsize=self.font_sizes["medium"])
+        self.canvas_2d.axes[1].set_xlabel(
+            "Spatial Frequency X (Å⁻¹)", fontsize=self.font_sizes["medium"]
         )
-        cbar_2D.ax.set_xlabel('CTF', fontsize=12) 
-        cbar_2D.ax.tick_params(labelsize=12)
-        cbar_2D.ax.set_position([0.25, 0.12, 0.5, 0.02])
+        self.canvas_2d.axes[1].set_ylabel(
+            "Spatial Frequency Y (Å⁻¹)", fontsize=self.font_sizes["medium"]
+        )
+
+        cbar_2d = self.canvas_ice.fig.colorbar(
+            self.image,
+            ax=self.canvas_2d.axes[1],
+            orientation="vertical",
+            # shrink=0.1,  # Adjust the size of the color bar
+            # pad=0.1,  # Adjust the spacing between the color bar and the plot
+        )
+        # cbar_2d.ax.set_xlabel("CTF", fontsize=12)
+        cbar_2d.ax.tick_params(labelsize=self.font_sizes["small"])
+        # cbar_2d.ax.set_position([0.25, 0.10, 0.5, 0.02])
 
     def _setup_ice_plot(self):
-        self.canvas_ice.fig.suptitle("CTF Modulation by Sample Thickness", fontsize=18, fontweight='bold')
-        self.canvas_ice.fig.subplots_adjust(hspace=0.2, top=0.93, bottom=0.08)
+        self.canvas_ice.fig.suptitle(
+            "CTF Modulation by Sample Thickness",
+            fontsize=self.font_sizes["large"],
+            fontweight="bold",
+        )
+        self.canvas_ice.fig.subplots_adjust(hspace=0.25, top=0.93, bottom=0.1)
         # Ice Plots
         self.canvas_ice.axes[1].set_xlim(0, 0.5)
-        self.canvas_ice.axes[1].tick_params(axis='both', which='major', labelsize=12)
+        self.canvas_ice.axes[1].tick_params(
+            axis="both", which="major", labelsize=self.font_sizes["small"]
+        )
         self.canvas_ice.axes[1].set_ylim(-1, 1)
-        self.canvas_ice.axes[1].axhline(y=0, color='grey', linestyle='--', alpha=0.8)
-        self.canvas_ice.axes[1].set_xlabel("Spatial Frequency (Å⁻¹)", fontsize=12)
-        self.canvas_ice.axes[1].set_ylabel("Contrast Transfer Function", fontsize=12)
-        self.canvas_ice.axes[2].set_xlabel("Spatial Frequency x (Å⁻¹)")
-        self.canvas_ice.axes[2].set_ylabel("Spatial Frequency Y (Å⁻¹)")
-        self.canvas_ice.axes[3].set_xlabel("Spatial Frequency X (Å⁻¹)")
+        self.canvas_ice.axes[1].axhline(y=0, color="grey", linestyle="--", alpha=0.8)
+        if not self.is_small_screen:
+            self.canvas_ice.axes[1].set_xlabel(
+                "Spatial Frequency (Å⁻¹)", fontsize=self.font_sizes["small"]
+            )
+        self.canvas_ice.axes[1].set_ylabel(
+            "Contrast Transfer Function", fontsize=self.font_sizes["small"]
+        )
+        self.canvas_ice.axes[2].set_title(
+            "CTF without Ice", fontsize=self.font_sizes["small"], fontweight="bold"
+        )
+        self.canvas_ice.axes[2].set_xlabel(
+            "Spatial Frequency x (Å⁻¹)", fontsize=self.font_sizes["small"]
+        )
+        self.canvas_ice.axes[2].set_ylabel(
+            "Spatial Frequency Y (Å⁻¹)", fontsize=self.font_sizes["small"]
+        )
+        self.canvas_ice.axes[2].tick_params(axis="both", labelsize=self.font_sizes["small"])
+        self.canvas_ice.axes[3].set_title(
+            "CTF with Ice", fontsize=self.font_sizes["small"], fontweight="bold"
+        )
+        self.canvas_ice.axes[3].set_xlabel(
+            "Spatial Frequency X (Å⁻¹)", fontsize=self.font_sizes["small"]
+        )
+        self.canvas_ice.axes[3].tick_params(axis="both", labelsize=self.font_sizes["small"])
 
         self.line_ice_ref = self.canvas_ice.axes[1].plot(
             self.freqs_1d,
@@ -231,62 +276,77 @@ class AppController(CTFSimGUI):
             color="purple",
             linewidth=1,
         )
-        self.canvas_ice.axes[1].legend(fontsize=12)
+        self.canvas_ice.axes[1].legend(fontsize=self.font_sizes["small"])
         self.ice_image_ref = self.canvas_ice.axes[2].imshow(
-            self.ctf_2d.dampened_ctf_2d(self.fx_fix, self.fy_fix), 
-            extent=(-0.5, 0.5, -0.5, 0.5), 
-            cmap='Greys', 
-            vmin=-1, 
+            self.ctf_2d.dampened_ctf_2d(self.fx_fix, self.fy_fix),
+            extent=(-0.5, 0.5, -0.5, 0.5),
+            cmap="Greys",
+            vmin=-1,
             vmax=1,
-            origin = 'lower',
+            origin="lower",
         )
         self.ice_image = self.canvas_ice.axes[3].imshow(
-            self.ctf_2d.dampened_ctf_ice(self.fx_fix, self.fy_fix), 
+            self.ctf_2d.dampened_ctf_ice(self.fx_fix, self.fy_fix),
             extent=(-0.5, 0.5, -0.5, 0.5),
-            cmap='Greys', 
-            vmin=-1, 
+            cmap="Greys",
+            vmin=-1,
             vmax=1,
-            origin = 'lower',
+            origin="lower",
         )
-        self.canvas_ice.fig.colorbar(
-            self.ice_image_ref, 
-            ax=self.canvas_ice.axes[2], 
-            orientation='vertical',  
+        # setup color bars
+        cbar_ice_left = self.canvas_ice.fig.colorbar(
+            self.ice_image_ref,
+            ax=self.canvas_ice.axes[2],
+            orientation="vertical",
         )
-        self.canvas_ice.fig.colorbar(
-            self.ice_image, 
-            ax=self.canvas_ice.axes[3], 
-            orientation='vertical',  
+        cbar_ice_right = self.canvas_ice.fig.colorbar(
+            self.ice_image,
+            ax=self.canvas_ice.axes[3],
+            orientation="vertical",
         )
+        cbar_ice_left.ax.tick_params(labelsize=self.font_sizes["small"])
+        cbar_ice_right.ax.tick_params(labelsize=self.font_sizes["small"])
 
     def _setup_tomo_plot(self):
         self._resample_data_points()
 
-        # Draw initial tomo plot 
-        self.canvas_tomo.fig.suptitle("CTF Modulation by Sample Tilting", fontsize=18, fontweight='bold')
-        self.canvas_tomo.fig.subplots_adjust(hspace=0.28, top=0.9, bottom=0.08)
-          
+        # Draw initial tomo plot
+        self.canvas_tomo.fig.suptitle(
+            "CTF Modulation by Sample Tilting", fontsize=self.font_sizes["large"], fontweight="bold"
+        )
+        self.canvas_tomo.fig.subplots_adjust(hspace=0.28, top=0.9, bottom=0.1)
+
         self.canvas_tomo.axes[1].set_xlim(-1500, 1500)
         self.canvas_tomo.axes[1].set_ylim(-1500, 1500)
         self.canvas_tomo.axes[1].set_aspect("equal")
-        self.canvas_tomo.axes[1].set_title("Schematic Diagram")
-        self.canvas_tomo.axes[1].set_xlabel("Size (µm)")
-        self.canvas_tomo.axes[1].set_ylabel("Size (µm)")
-        self.canvas_tomo.axes[1].xaxis.set_major_formatter(FuncFormatter(lambda x, _: f"{abs(x)/1000:.1f}"))
-        self.canvas_tomo.axes[1].yaxis.set_major_formatter(FuncFormatter(lambda x, _: f"{abs(x)/1000:.1f}"))
+        self.canvas_tomo.axes[1].set_title(
+            "Schematic Diagram", fontsize=self.font_sizes["small"], fontweight="bold"
+        )
+        if not self.is_small_screen:
+            self.canvas_tomo.axes[1].set_xlabel("Length (µm)", fontsize=self.font_sizes["small"])
+        self.canvas_tomo.axes[1].set_ylabel("Length (µm)", fontsize=self.font_sizes["small"])
+        self.canvas_tomo.axes[1].xaxis.set_major_formatter(
+            FuncFormatter(lambda x, _: f"{abs(x)/1000:.1f}")
+        )
+        self.canvas_tomo.axes[1].yaxis.set_major_formatter(
+            FuncFormatter(lambda x, _: f"{abs(x)/1000:.1f}")
+        )
+        self.canvas_tomo.axes[1].tick_params(axis="both", labelsize=self.font_sizes["small"])
 
         # Beam
-        self.beam = self.canvas_tomo.axes[1].plot([0, 0], [0, 1500], 'b', linewidth=2, label="Beam direction")
+        self.beam = self.canvas_tomo.axes[1].plot(
+            [0, 0], [0, 1500], "b", linewidth=2, label="Beam direction"
+        )
 
         # Sample rectangle centered at (0, 0)
         self.width_tomo, self.height_tomo = 1000.0, 50  # in nanometer
         self.sample_rect = Rectangle(
-            (-self.width_tomo / 2, -self.height_tomo / 2), 
-            self.width_tomo, 
-            self.height_tomo, 
-            fc='gray', 
-            edgecolor='black',
-            label='Illuminated area'
+            (-self.width_tomo / 2, -self.height_tomo / 2),
+            self.width_tomo,
+            self.height_tomo,
+            fc="gray",
+            edgecolor="black",
+            label="Illuminated area",
         )
         self.canvas_tomo.axes[1].add_patch(self.sample_rect)
 
@@ -294,52 +354,74 @@ class AppController(CTFSimGUI):
         self.center_x_tomo, self.center_y_tomo = 0, 0
 
         # Legend
-        self.canvas_tomo.axes[1].legend(handles=[
-            self.beam[0],
-            self.sample_rect])
+        self.canvas_tomo.axes[1].legend(
+            handles=[self.beam[0], self.sample_rect], fontsize=self.font_sizes["small"]
+        )
 
-        # Setup plot and axis labels  
-        self.canvas_tomo.axes[3].set_title("CTF without Tilt")      
-        self.canvas_tomo.axes[3].set_xlabel("Spatial Frequency X (Å⁻¹)")
-        self.canvas_tomo.axes[3].set_ylabel("Spatial Frequency Y (Å⁻¹)")
-        self.canvas_tomo.axes[4].set_title("CTF with Tilted Sample", fontsize=14, pad=10)
-        self.canvas_tomo.axes[4].set_xlabel("Spatial Frequency X (Å⁻¹)")
-        self.canvas_tomo.axes[4].set_ylabel("Spatial Frequency Y (Å⁻¹)")
+        # Setup plot and axis labels
+        self.canvas_tomo.axes[3].set_title(
+            "CTF without Tilt", fontsize=self.font_sizes["small"], fontweight="bold"
+        )
+        self.canvas_tomo.axes[3].set_xlabel(
+            "Spatial Frequency X (Å⁻¹)", fontsize=self.font_sizes["small"]
+        )
+        self.canvas_tomo.axes[3].set_ylabel(
+            "Spatial Frequency Y (Å⁻¹)", fontsize=self.font_sizes["small"]
+        )
+        self.canvas_tomo.axes[4].set_title(
+            "CTF with Tilted Sample", fontsize=self.font_sizes["medium"], fontweight="bold"
+        )
+        self.canvas_tomo.axes[4].set_xlabel(
+            "Spatial Frequency X (Å⁻¹)", fontsize=self.font_sizes["small"]
+        )
+        self.canvas_tomo.axes[4].set_ylabel(
+            "Spatial Frequency Y (Å⁻¹)", fontsize=self.font_sizes["small"]
+        )
+        self.canvas_tomo.axes[3].tick_params(axis="both", labelsize=self.font_sizes["small"])
+        self.canvas_tomo.axes[4].tick_params(axis="both", labelsize=self.font_sizes["small"])
 
         # CTF
         self.tomo_image_ref = self.canvas_tomo.axes[3].imshow(
-            self.ctf_tomo_ref.dampened_ctf_ice(self.fx, self.fy), 
-            extent=(-self.nyquist, self.nyquist, -self.nyquist, self.nyquist), 
-            cmap='Greys', 
-            vmin=-1, 
+            self.ctf_tomo_ref.dampened_ctf_ice(self.fx, self.fy),
+            extent=(-self.nyquist, self.nyquist, -self.nyquist, self.nyquist),
+            cmap="Greys",
+            vmin=-1,
             vmax=1,
-            origin = 'lower',
+            origin="lower",
         )
         self.tomo_image = self.canvas_tomo.axes[4].imshow(
-            self.ctf_tomo_tilt.dampened_ctf_ice(self.fx, self.fy), 
+            self.ctf_tomo_tilt.dampened_ctf_ice(self.fx, self.fy),
             extent=(-self.nyquist, self.nyquist, -self.nyquist, self.nyquist),
-            cmap='Greys', 
-            vmin=-1, 
+            cmap="Greys",
+            vmin=-1,
             vmax=1,
-            origin = 'lower',
+            origin="lower",
         )
         cbar_tomo = self.canvas_tomo.fig.colorbar(
-            self.tomo_image_ref, 
-            ax=self.canvas_tomo.axes[4], 
-            orientation='horizontal',  
-            shrink=0.8,  # Adjust the size of the color bar
-            pad=0.05  # Adjust the spacing between the color bar and the plot
+            self.tomo_image_ref,
+            ax=self.canvas_tomo.axes[4],
+            orientation="horizontal",
+            # shrink=0.8,  # Adjust the size of the color bar
+            # pad=0.05,  # Adjust the spacing between the color bar and the plot
         )
-        cbar_tomo.ax.set_xlabel('CTF')
-        cbar_tomo.ax.set_position([0.48, 0.15, 0.5, 0.02])
+        # cbar_tomo.ax.set_xlabel("CTF")
+        # cbar_tomo.ax.set_position([0.48, 0.12, 0.5, 0.02])
+        image_pos = self.canvas_tomo.axes[4].get_position()
+        cbar_pos = cbar_tomo.ax.get_position()
+
+        cbar_tomo.ax.set_position([cbar_pos.x0, image_pos.y0 - 0.15, image_pos.width, 0.03])
+
+        cbar_tomo.ax.tick_params(labelsize=self.font_sizes["small"])
 
     def _setup_image_plot(self):
-        self.canvas_image.fig.suptitle("Image Modulation by CTF", fontsize=18, fontweight='bold')
-        self.canvas_image.fig.subplots_adjust(hspace=0.28, top=0.9, bottom=0.08)
+        self.canvas_image.fig.suptitle(
+            "Image Modulation by CTF", fontsize=self.font_sizes["large"], fontweight="bold"
+        )
+        self.canvas_image.fig.subplots_adjust(hspace=0.28, top=0.9, bottom=0.1)
 
         # Load default image
         self.image_data = self._load_and_prepare_image(self.default_image)
-        self.image_contrast_inverted = False  # initialize instance variable 
+        self.image_contrast_inverted = False  # initialize instance variable
 
         # FFT
         self.image_data_fft = np.fft.fftshift(np.fft.fft2(self.image_data))
@@ -350,34 +432,66 @@ class AppController(CTFSimGUI):
         self.scaled_convolved = np.abs(np.fft.ifft2(self.image_data_fft * ctf_matrix))
 
         # Setup axes
-        self.image_original = self.canvas_image.axes[1].imshow(self.image_data, cmap='Greys')
-        vmin, vmax = np.percentile(self.scaled_fft,
-                                   [100 - self.contrast_scale_fft.value(), self.contrast_scale_fft.value()])
-        self.image_fft = self.canvas_image.axes[2].imshow(self.scaled_fft, 
-                                                          vmin=vmin,
-                                                          vmax=vmax,
-                                                          cmap='Greys', 
-                                                          origin='lower')
-        self.image_ctf_convolve = self.canvas_image.axes[4].imshow(ctf_matrix, cmap='Greys', vmin=-1, vmax=1, origin='lower', extent=(-0.5, 0.5, -0.5, 0.5))
-        self.image_convolved = self.canvas_image.axes[3].imshow(self.scaled_convolved, cmap='Greys')
+        self.image_original = self.canvas_image.axes[1].imshow(self.image_data, cmap="Greys")
+        vmin, vmax = np.percentile(
+            self.scaled_fft,
+            [100 - self.contrast_scale_fft.value(), self.contrast_scale_fft.value()],
+        )
+        self.image_fft = self.canvas_image.axes[2].imshow(
+            self.scaled_fft, vmin=vmin, vmax=vmax, cmap="Greys", origin="lower"
+        )
+        self.image_ctf_convolve = self.canvas_image.axes[4].imshow(
+            ctf_matrix,
+            cmap="Greys",
+            vmin=-1,
+            vmax=1,
+            origin="lower",
+            extent=(-self.nyquist, self.nyquist, -self.nyquist, self.nyquist),
+        )
+        self.image_convolved = self.canvas_image.axes[3].imshow(self.scaled_convolved, cmap="Greys")
 
         # Add titles and labels
-        self.canvas_image.axes[1].set_title("Original Image")
-        self.canvas_image.axes[2].set_title("Fast Fourier Transform")
-        self.canvas_image.axes[3].set_title("Convolved Image")
-        self.canvas_image.axes[4].set_title("Contrast Transfer Function")
+        self.canvas_image.axes[1].set_title(
+            "Original Image", fontsize=self.font_sizes["small"], fontweight="bold"
+        )
+        self.canvas_image.axes[2].set_title(
+            "Fast Fourier Transform", fontsize=self.font_sizes["small"], fontweight="bold"
+        )
+        self.canvas_image.axes[3].set_title(
+            "Convolved Image", fontsize=self.font_sizes["small"], fontweight="bold"
+        )
+        self.canvas_image.axes[4].set_title(
+            "Contrast Transfer Function", fontsize=self.font_sizes["small"], fontweight="bold"
+        )
 
         for i in [1, 2, 3, 4]:
-            self.canvas_image.axes[i].set_xlabel("Pixel X" if i in [1, 3] else "Spatial Frequency X (Å⁻¹)")
-            self.canvas_image.axes[i].set_ylabel("Pixel Y" if i in [1, 3] else "Spatial Frequency Y (Å⁻¹)")
+            # Always set ylabel and tick label size
+            self.canvas_image.axes[i].set_ylabel(
+                "Pixel Y" if i in [1, 3] else "Spatial Frequency Y (Å⁻¹)",
+                fontsize=self.font_sizes["small"],
+            )
+            self.canvas_image.axes[i].tick_params(axis="both", labelsize=self.font_sizes["small"])
+
+            # Conditionally set xlabel
+            if not self.is_small_screen or i in [3, 4]:
+                self.canvas_image.axes[i].set_xlabel(
+                    "Pixel X" if i in [1, 3] else "Spatial Frequency X (Å⁻¹)",
+                    fontsize=self.font_sizes["small"],
+                )
 
         # Colorbars
-        self.canvas_image.fig.colorbar(self.image_original, ax=self.canvas_image.axes[1])
-        self.canvas_image.fig.colorbar(self.image_fft, ax=self.canvas_image.axes[2])
-        self.canvas_image.fig.colorbar(self.image_convolved, ax=self.canvas_image.axes[3])
-        self.canvas_image.fig.colorbar(self.image_ctf_convolve, ax=self.canvas_image.axes[4])
-
-        self._update_ticks_for_fft()
+        cbar_image_1 = self.canvas_image.fig.colorbar(
+            self.image_original, ax=self.canvas_image.axes[1]
+        )
+        cbar_image_2 = self.canvas_image.fig.colorbar(self.image_fft, ax=self.canvas_image.axes[2])
+        cbar_image_3 = self.canvas_image.fig.colorbar(
+            self.image_convolved, ax=self.canvas_image.axes[3]
+        )
+        cbar_image_4 = self.canvas_image.fig.colorbar(
+            self.image_ctf_convolve, ax=self.canvas_image.axes[4]
+        )
+        for cbar in [cbar_image_1, cbar_image_2, cbar_image_3, cbar_image_4]:
+            cbar.ax.tick_params(labelsize=self.font_sizes["small"])
 
     def _setup_annotations(self):
         # An instance variable to control the annotation
@@ -391,8 +505,8 @@ class AppController(CTFSimGUI):
             textcoords="offset points",
             bbox=dict(boxstyle="round", fc="w"),
             arrowprops=dict(arrowstyle="->"),
-            fontsize=10,
-            zorder=10
+            fontsize=self.font_sizes["tiny"],
+            zorder=10,
         )
         self.annotation_1d.set_visible(False)
 
@@ -404,8 +518,8 @@ class AppController(CTFSimGUI):
             textcoords="offset points",
             bbox=dict(boxstyle="round", fc="w"),
             arrowprops=dict(arrowstyle="->"),
-            fontsize=10,
-            zorder=10
+            fontsize=self.font_sizes["tiny"],
+            zorder=10,
         )
         self.annotation_2d.set_visible(False)
 
@@ -417,20 +531,20 @@ class AppController(CTFSimGUI):
             textcoords="offset points",
             bbox=dict(boxstyle="round", fc="w"),
             arrowprops=dict(arrowstyle="->"),
-            fontsize=10,
-            zorder=10
+            fontsize=self.font_sizes["tiny"],
+            zorder=10,
         )
         self.annotation_ice_1d.set_visible(False)
 
-        self.canvas_ice.axes[1].annotate(
-            "1D",
-            xy=(1, 0),
-            xycoords="axes fraction",
-            xytext=(-17, 5),
-            textcoords="offset points",
-            bbox=dict(boxstyle="round", fc="w"),
-            fontsize=10
-        )
+        # self.canvas_ice.axes[1].annotate(
+        #     "1D",
+        #     xy=(1, 0),
+        #     xycoords="axes fraction",
+        #     xytext=(-17, 5),
+        #     textcoords="offset points",
+        #     bbox=dict(boxstyle="round", fc="w"),
+        #     fontsize=self.font_sizes["tiny"],
+        # )
 
         self.annotation_ice_ref = self.canvas_ice.axes[2].annotate(
             "",
@@ -439,8 +553,8 @@ class AppController(CTFSimGUI):
             textcoords="offset points",
             bbox=dict(boxstyle="round", fc="w"),
             arrowprops=dict(arrowstyle="->"),
-            fontsize=10,
-            zorder=10
+            fontsize=self.font_sizes["tiny"],
+            zorder=10,
         )
         self.annotation_ice_ref.set_visible(False)
 
@@ -451,50 +565,50 @@ class AppController(CTFSimGUI):
             textcoords="offset points",
             bbox=dict(boxstyle="round", fc="w"),
             arrowprops=dict(arrowstyle="->"),
-            fontsize=10,
-            zorder=10
+            fontsize=self.font_sizes["tiny"],
+            zorder=10,
         )
         self.annotation_ice_ctf.set_visible(False)
 
-        self.canvas_ice.axes[2].annotate(
-            "without ice",
-            xy=(0, 1),
-            xycoords="axes fraction",
-            xytext=(3, -11),
-            textcoords="offset points",
-            bbox=dict(boxstyle="round", fc="w"),
-            fontsize=10
-        )
+        # self.canvas_ice.axes[2].annotate(
+        #     "without ice",
+        #     xy=(0, 1),
+        #     xycoords="axes fraction",
+        #     xytext=(3, -11),
+        #     textcoords="offset points",
+        #     bbox=dict(boxstyle="round", fc="w"),
+        #     fontsize=self.font_sizes["tiny"],
+        # )
 
-        self.canvas_ice.axes[2].annotate(
-            "2D",
-            xy=(1, 0),
-            xycoords="axes fraction",
-            xytext=(-17, 5),
-            textcoords="offset points",
-            bbox=dict(boxstyle="round", fc="w"),
-            fontsize=10
-        )
+        # self.canvas_ice.axes[2].annotate(
+        #     "2D",
+        #     xy=(1, 0),
+        #     xycoords="axes fraction",
+        #     xytext=(-17, 5),
+        #     textcoords="offset points",
+        #     bbox=dict(boxstyle="round", fc="w"),
+        #     fontsize=self.font_sizes["tiny"],
+        # )
 
-        self.canvas_ice.axes[3].annotate(
-            "with ice",
-            xy=(0, 1),
-            xycoords="axes fraction",
-            xytext=(3, -11),
-            textcoords="offset points",
-            bbox=dict(boxstyle="round", fc="w"),
-            fontsize=10
-        )
+        # self.canvas_ice.axes[3].annotate(
+        #     "with ice",
+        #     xy=(0, 1),
+        #     xycoords="axes fraction",
+        #     xytext=(3, -11),
+        #     textcoords="offset points",
+        #     bbox=dict(boxstyle="round", fc="w"),
+        #     fontsize=self.font_sizes["tiny"],
+        # )
 
-        self.canvas_ice.axes[3].annotate(
-            "2D",
-            xy=(1, 0),
-            xycoords="axes fraction",
-            xytext=(-17, 5),
-            textcoords="offset points",
-            bbox=dict(boxstyle="round", fc="w"),
-            fontsize=10
-        )
+        # self.canvas_ice.axes[3].annotate(
+        #     "2D",
+        #     xy=(1, 0),
+        #     xycoords="axes fraction",
+        #     xytext=(-17, 5),
+        #     textcoords="offset points",
+        #     bbox=dict(boxstyle="round", fc="w"),
+        #     fontsize=self.font_sizes["tiny"],
+        # )
 
         # Annotations for Tomo tab
         self.annotation_tomo_diagram_state = self.canvas_tomo.axes[1].annotate(
@@ -504,8 +618,8 @@ class AppController(CTFSimGUI):
             xytext=(3, -33),
             textcoords="offset points",
             bbox=dict(boxstyle="round", fc="w"),
-            fontsize=10,
-            zorder=10
+            fontsize=self.font_sizes["tiny"],
+            zorder=10,
         )
         self.annotation_tomo_diagram_state.set_visible(False)
 
@@ -516,8 +630,8 @@ class AppController(CTFSimGUI):
             textcoords="offset points",
             bbox=dict(boxstyle="round", fc="w"),
             arrowprops=dict(arrowstyle="->"),
-            fontsize=10,
-            zorder=10
+            fontsize=self.font_sizes["tiny"],
+            zorder=10,
         )
         self.annotation_tomo_tilt_ctf.set_visible(False)
 
@@ -528,8 +642,8 @@ class AppController(CTFSimGUI):
             textcoords="offset points",
             bbox=dict(boxstyle="round", fc="w"),
             arrowprops=dict(arrowstyle="->"),
-            fontsize=10,
-            zorder=10
+            fontsize=self.font_sizes["tiny"],
+            zorder=10,
         )
         self.annotation_tomo_ref_ctf.set_visible(False)
 
@@ -541,8 +655,8 @@ class AppController(CTFSimGUI):
             textcoords="offset points",
             bbox=dict(boxstyle="round", fc="w"),
             arrowprops=dict(arrowstyle="->"),
-            fontsize=10,
-            zorder=10
+            fontsize=self.font_sizes["tiny"],
+            zorder=10,
         )
         self.annotation_image_original.set_visible(False)
 
@@ -553,8 +667,8 @@ class AppController(CTFSimGUI):
             textcoords="offset points",
             bbox=dict(boxstyle="round", fc="w"),
             arrowprops=dict(arrowstyle="->"),
-            fontsize=10,
-            zorder=10
+            fontsize=self.font_sizes["tiny"],
+            zorder=10,
         )
         self.annotation_image_fft.set_visible(False)
 
@@ -565,8 +679,8 @@ class AppController(CTFSimGUI):
             textcoords="offset points",
             bbox=dict(boxstyle="round", fc="w"),
             arrowprops=dict(arrowstyle="->"),
-            fontsize=10,
-            zorder=10
+            fontsize=self.font_sizes["tiny"],
+            zorder=10,
         )
         self.annotation_image_convolved.set_visible(False)
 
@@ -577,8 +691,8 @@ class AppController(CTFSimGUI):
             textcoords="offset points",
             bbox=dict(boxstyle="round", fc="w"),
             arrowprops=dict(arrowstyle="->"),
-            fontsize=10,
-            zorder=10
+            fontsize=self.font_sizes["tiny"],
+            zorder=10,
         )
         self.annotation_image_ctf_convolve.set_visible(False)
 
@@ -595,8 +709,7 @@ class AppController(CTFSimGUI):
         self.fx_fix, self.fy_fix = np.meshgrid(freq_x, freq_y, sparse=True)
 
     def _resample_data_points(self) -> None:
-        """Resample data points up to nyquist based on current pixel size
-        """        
+        """Resample data points up to nyquist based on current pixel size"""
         self.nyquist = 0.5 / self.pixel_size_slider.get_value()
 
         freq_x = np.linspace(-self.nyquist, self.nyquist, self.image_size)
@@ -609,25 +722,63 @@ class AppController(CTFSimGUI):
         Connect signals from PyQt widgets to appropriate callbacks
         to update or reset the CTF parameters and refresh the plots.
         """
-        self.voltage_slider.valueChanged.connect(lambda value, key="voltage": self.update_ctf(key, value))
-        self.voltage_stability_slider.valueChanged.connect(lambda value, key="voltage_stability": self.update_ctf(key, value))
-        self.electron_source_angle_slider.valueChanged.connect(lambda value, key="es_angle": self.update_ctf(key, value))
-        self.electron_source_spread_slider.valueChanged.connect(lambda value, key="es_spread": self.update_ctf(key, value))
-        self.chromatic_aberr_slider.valueChanged.connect(lambda value, key="cc": self.update_ctf(key, value))
-        self.spherical_aberr_slider.valueChanged.connect(lambda value, key="cs": self.update_ctf(key, value))
-        self.obj_lens_stability_slider.valueChanged.connect(lambda value, key="obj_stability": self.update_ctf(key, value))
-        self.detector_combo.currentIndexChanged.connect(lambda value, key="detector": self.update_ctf(key, value))
-        self.pixel_size_slider.valueChanged.connect(lambda value, key="pixel_size": self.update_ctf(key, value))
-        self.sample_size_tomo.valueChanged.connect(lambda value, key="sample_size": self.update_tomo(key, value))
-        self.defocus_slider.valueChanged.connect(lambda value, key="df": self.update_ctf(key, value))
-        self.defocus_diff_slider_2d.valueChanged.connect(lambda value, key="df_diff": self.update_ctf(key, value))
-        self.defocus_diff_slider_ice.valueChanged.connect(lambda value, key="df_diff": self.update_ctf(key, value))
-        self.defocus_diff_slider_image.valueChanged.connect(lambda value, key="df_diff": self.update_ctf(key, value))
-        self.defocus_az_slider_2d.valueChanged.connect(lambda value, key="df_az": self.update_ctf(key, value))
-        self.defocus_az_slider_ice.valueChanged.connect(lambda value, key="df_az": self.update_ctf(key, value))
-        self.defocus_az_slider_image.valueChanged.connect(lambda value, key="df_az": self.update_ctf(key, value))
-        self.amplitude_contrast_slider.valueChanged.connect(lambda value, key="ac": self.update_ctf(key, value))
-        self.additional_phase_slider.valueChanged.connect(lambda value, key="phase": self.update_ctf(key, value))
+        self.voltage_slider.valueChanged.connect(
+            lambda value, key="voltage": self.update_ctf(key, value)
+        )
+        self.voltage_stability_slider.valueChanged.connect(
+            lambda value, key="voltage_stability": self.update_ctf(key, value)
+        )
+        self.electron_source_angle_slider.valueChanged.connect(
+            lambda value, key="es_angle": self.update_ctf(key, value)
+        )
+        self.electron_source_spread_slider.valueChanged.connect(
+            lambda value, key="es_spread": self.update_ctf(key, value)
+        )
+        self.chromatic_aberr_slider.valueChanged.connect(
+            lambda value, key="cc": self.update_ctf(key, value)
+        )
+        self.spherical_aberr_slider.valueChanged.connect(
+            lambda value, key="cs": self.update_ctf(key, value)
+        )
+        self.obj_lens_stability_slider.valueChanged.connect(
+            lambda value, key="obj_stability": self.update_ctf(key, value)
+        )
+        self.detector_combo.currentIndexChanged.connect(
+            lambda value, key="detector": self.update_ctf(key, value)
+        )
+        self.pixel_size_slider.valueChanged.connect(
+            lambda value, key="pixel_size": self.update_ctf(key, value)
+        )
+        self.sample_size_tomo.valueChanged.connect(
+            lambda value, key="sample_size": self.update_tomo(key, value)
+        )
+        self.defocus_slider.valueChanged.connect(
+            lambda value, key="df": self.update_ctf(key, value)
+        )
+        self.defocus_diff_slider_2d.valueChanged.connect(
+            lambda value, key="df_diff": self.update_ctf(key, value)
+        )
+        self.defocus_diff_slider_ice.valueChanged.connect(
+            lambda value, key="df_diff": self.update_ctf(key, value)
+        )
+        self.defocus_diff_slider_image.valueChanged.connect(
+            lambda value, key="df_diff": self.update_ctf(key, value)
+        )
+        self.defocus_az_slider_2d.valueChanged.connect(
+            lambda value, key="df_az": self.update_ctf(key, value)
+        )
+        self.defocus_az_slider_ice.valueChanged.connect(
+            lambda value, key="df_az": self.update_ctf(key, value)
+        )
+        self.defocus_az_slider_image.valueChanged.connect(
+            lambda value, key="df_az": self.update_ctf(key, value)
+        )
+        self.amplitude_contrast_slider.valueChanged.connect(
+            lambda value, key="ac": self.update_ctf(key, value)
+        )
+        self.additional_phase_slider.valueChanged.connect(
+            lambda value, key="phase": self.update_ctf(key, value)
+        )
         self.plot_1d_x_min.valueChanged.connect(self.update_plot_range)
         self.plot_1d_x_max.valueChanged.connect(self.update_plot_range)
         self.plot_1d_y_min.valueChanged.connect(self.update_plot_range)
@@ -644,16 +795,24 @@ class AppController(CTFSimGUI):
         self.gray_scale_2d.valueChanged.connect(self.update_grayness)
         self.gray_scale_ice.valueChanged.connect(self.update_grayness)
         self.gray_scale_tomo.valueChanged.connect(self.update_grayness)
-        self.temporal_env_check.stateChanged.connect(lambda value, key="temporal_env": self.update_ctf(key, value))
-        self.spatial_env_check.stateChanged.connect(lambda value, key="spatial_env": self.update_ctf(key, value))
-        self.detector_env_check.stateChanged.connect(lambda value, key="detector_env": self.update_ctf(key, value))
+        self.temporal_env_check.stateChanged.connect(
+            lambda value, key="temporal_env": self.update_ctf(key, value)
+        )
+        self.spatial_env_check.stateChanged.connect(
+            lambda value, key="spatial_env": self.update_ctf(key, value)
+        )
+        self.detector_env_check.stateChanged.connect(
+            lambda value, key="detector_env": self.update_ctf(key, value)
+        )
         self.show_temp.stateChanged.connect(self.update_display_1d)
         self.show_spatial.stateChanged.connect(self.update_display_1d)
         self.show_detector.stateChanged.connect(self.update_display_1d)
         self.show_total.stateChanged.connect(self.update_display_1d)
         self.show_y0.stateChanged.connect(self.update_display_1d)
         self.show_legend.stateChanged.connect(self.update_display_1d)
-        self.plot_tabs.currentChanged.connect(lambda value, key="tab_switch": self.update_ctf(key, value))
+        self.plot_tabs.currentChanged.connect(
+            lambda value, key="tab_switch": self.update_ctf(key, value)
+        )
         self.reset_button.clicked.connect(self.reset_parameters)
         self.save_img_button.clicked.connect(self.save_plot)
         self.save_csv_button.clicked.connect(self.save_csv)
@@ -662,16 +821,30 @@ class AppController(CTFSimGUI):
         self.canvas_ice.mpl_connect("motion_notify_event", self.on_hover)
         self.canvas_tomo.mpl_connect("motion_notify_event", self.on_hover)
         self.canvas_image.mpl_connect("motion_notify_event", self.on_hover)
-        self.ice_thickness_slider.valueChanged.connect(lambda value, key="ice": self.update_ctf(key, value))
+        self.ice_thickness_slider.valueChanged.connect(
+            lambda value, key="ice": self.update_ctf(key, value)
+        )
         self.radio_button_group.buttonToggled.connect(self.update_wrap_func)
-        self.tilt_slider_tomo.valueChanged.connect(lambda value, key="tilt_angle": self.update_tomo(key, value))
-        self.sample_thickness_slider_tomo.valueChanged.connect(lambda value, key="thickness": self.update_tomo(key, value))
-        self.defocus_diff_slider_tomo.valueChanged.connect(lambda value, key="df_diff": self.update_tomo(key, value))
-        self.defocus_az_slider_tomo.valueChanged.connect(lambda value, key="df_az": self.update_tomo(key, value))
+        self.tilt_slider_tomo.valueChanged.connect(
+            lambda value, key="tilt_angle": self.update_tomo(key, value)
+        )
+        self.sample_thickness_slider_tomo.valueChanged.connect(
+            lambda value, key="thickness": self.update_tomo(key, value)
+        )
+        self.defocus_diff_slider_tomo.valueChanged.connect(
+            lambda value, key="df_diff": self.update_tomo(key, value)
+        )
+        self.defocus_az_slider_tomo.valueChanged.connect(
+            lambda value, key="df_az": self.update_tomo(key, value)
+        )
         self.upload_btn.clicked.connect(self._handle_upload_image)
         self.invert_btn.clicked.connect(self._invert_contrast)
-        self.size_scale_image.valueChanged.connect(lambda value, key="image": self.zoom_2d_image(key, value))
-        self.size_scale_fft.valueChanged.connect(lambda value, key="fft": self.zoom_2d_image(key, value))
+        self.size_scale_image.valueChanged.connect(
+            lambda value, key="image": self.zoom_2d_image(key, value)
+        )
+        self.size_scale_fft.valueChanged.connect(
+            lambda value, key="fft": self.zoom_2d_image(key, value)
+        )
         self.contrast_scale_image.valueChanged.connect(self.adjust_contrast_image)
         self.contrast_scale_fft.valueChanged.connect(self.adjust_contrast_fft)
         self.info_button_1d.clicked.connect(self.show_info)
@@ -696,7 +869,7 @@ class AppController(CTFSimGUI):
         elif self.radio_button_group.checkedButton() == self.radio_abs_ctf:
             return lambda x: np.abs(x)
         elif self.radio_button_group.checkedButton() == self.radio_ctf_squared:
-            return lambda x: x ** 2
+            return lambda x: x**2
 
     def _setup_default_ylim(self):
         if self.radio_button_group.checkedButton() == self.radio_ctf:
@@ -820,38 +993,68 @@ class AppController(CTFSimGUI):
         if self.plot_tabs.currentIndex() == 0:
             # Update 1D
             self.line_et[0].set_data(self.freqs_1d, self.wrap_func(self.ctf_1d.Et(self.freqs_1d)))
-            self.line_es[0].set_data(self.freqs_1d, self.wrap_func(self.ctf_1d.Es_1d(self.freqs_1d)))
+            self.line_es[0].set_data(
+                self.freqs_1d, self.wrap_func(self.ctf_1d.Es_1d(self.freqs_1d))
+            )
             self.line_ed[0].set_data(self.freqs_1d, self.wrap_func(self.ctf_1d.Ed(self.freqs_1d)))
-            self.line_te[0].set_data(self.freqs_1d, self.wrap_func(self.ctf_1d.Etotal_1d(self.freqs_1d)))
-            self.line_dc[0].set_data(self.freqs_1d, self.wrap_func(self.ctf_1d.dampened_ctf_1d(self.freqs_1d)))
+            self.line_te[0].set_data(
+                self.freqs_1d, self.wrap_func(self.ctf_1d.Etotal_1d(self.freqs_1d))
+            )
+            self.line_dc[0].set_data(
+                self.freqs_1d,
+                self.wrap_func(self.ctf_1d.dampened_ctf_1d(self.freqs_1d)),
+            )
             # self.canvas_1d.axes[1].set_xlim(0, self.xlim_slider_1d.get_value())
             self.canvas_1d.draw_idle()
         elif self.plot_tabs.currentIndex() == 1:
             # Update 2D
-            self.image.set_data(self.wrap_func(self.ctf_2d.dampened_ctf_2d(self.fx_fix, self.fy_fix)))
+            self.image.set_data(
+                self.wrap_func(self.ctf_2d.dampened_ctf_2d(self.fx_fix, self.fy_fix))
+            )
             self.canvas_2d.draw_idle()
         elif self.plot_tabs.currentIndex() == 2:
             # Update ice tab plots
-            self.line_ice_ref[0].set_data(self.freqs_1d, self.wrap_func(self.ctf_1d.dampened_ctf_1d(self.freqs_1d)))
-            self.line_ice[0].set_data(self.freqs_1d, self.wrap_func(self.ctf_1d.dampened_ctf_ice(self.freqs_1d)))
+            self.line_ice_ref[0].set_data(
+                self.freqs_1d,
+                self.wrap_func(self.ctf_1d.dampened_ctf_1d(self.freqs_1d)),
+            )
+            self.line_ice[0].set_data(
+                self.freqs_1d,
+                self.wrap_func(self.ctf_1d.dampened_ctf_ice(self.freqs_1d)),
+            )
             # self.canvas_ice.axes[1].set_xlim(0, self.xlim_slider_ice.get_value())
-            self.ice_image_ref.set_data(self.wrap_func(self.ctf_2d.dampened_ctf_2d(self.fx_fix, self.fy_fix)))
-            self.ice_image.set_data(self.wrap_func(self.ctf_2d.dampened_ctf_ice(self.fx_fix, self.fy_fix)))
+            self.ice_image_ref.set_data(
+                self.wrap_func(self.ctf_2d.dampened_ctf_2d(self.fx_fix, self.fy_fix))
+            )
+            self.ice_image.set_data(
+                self.wrap_func(self.ctf_2d.dampened_ctf_ice(self.fx_fix, self.fy_fix))
+            )
             self.canvas_ice.draw_idle()
         elif self.plot_tabs.currentIndex() == 3:
             # Update tomo tab plots
             if self.pixel_size_changed:
                 self._resample_data_points()
-                self.tomo_image_ref.set_extent((-self.nyquist, self.nyquist, -self.nyquist, self.nyquist))
-                self.tomo_image.set_extent((-self.nyquist, self.nyquist, -self.nyquist, self.nyquist))
-            self.tomo_image_ref.set_data(self.wrap_func(self.ctf_tomo_ref.dampened_ctf_ice(self.fx, self.fy)))  
-            self.tomo_image.set_data(self.wrap_func(self.ctf_tomo_tilt.dampened_ctf_ice(self.fx, self.fy)))    
+                self.tomo_image_ref.set_extent(
+                    (-self.nyquist, self.nyquist, -self.nyquist, self.nyquist)
+                )
+                self.tomo_image.set_extent(
+                    (-self.nyquist, self.nyquist, -self.nyquist, self.nyquist)
+                )
+            self.tomo_image_ref.set_data(
+                self.wrap_func(self.ctf_tomo_ref.dampened_ctf_ice(self.fx, self.fy))
+            )
+            self.tomo_image.set_data(
+                self.wrap_func(self.ctf_tomo_tilt.dampened_ctf_ice(self.fx, self.fy))
+            )
             self.canvas_tomo.draw_idle()
         elif self.plot_tabs.currentIndex() == 4:
             if self.pixel_size_changed:
                 self._resample_data_points()
-                self.image_ctf_convolve.set_extent((-self.nyquist, self.nyquist, -self.nyquist, self.nyquist))
-                self._update_ticks_for_fft()
+                self.image_ctf_convolve.set_extent(
+                    (-self.nyquist, self.nyquist, -self.nyquist, self.nyquist)
+                )
+
+            self._update_ticks_for_fft()
 
             # update ctf
             ctf_matrix = self.ctf_2d.dampened_ctf_2d(self.fx, self.fy)
@@ -868,7 +1071,7 @@ class AppController(CTFSimGUI):
     def update_plot_range(self) -> None:
         """
         Update X Y limits of the plot without setting data.
-        """        
+        """
         if self.plot_tabs.currentIndex() == 0:
             self.canvas_1d.axes[1].set_xlim(self.plot_1d_x_min.value(), self.plot_1d_x_max.value())
             self.canvas_1d.axes[1].set_ylim(self.plot_1d_y_min.value(), self.plot_1d_y_max.value())
@@ -892,7 +1095,10 @@ class AppController(CTFSimGUI):
         Update Y limits of 1D CTF plot using slider.
         """
         self.plot_1d_y_max.setValue(value)
-        if self.radio_button_group.checkedButton() == self.radio_abs_ctf or self.radio_button_group.checkedButton() == self.radio_ctf_squared:
+        if (
+            self.radio_button_group.checkedButton() == self.radio_abs_ctf
+            or self.radio_button_group.checkedButton() == self.radio_ctf_squared
+        ):
             self.plot_1d_y_min.setValue(0)
         else:
             self.plot_1d_y_min.setValue(-value)
@@ -908,18 +1114,26 @@ class AppController(CTFSimGUI):
             self.canvas_2d.axes[1].set_ylim(-self.freq_scale_2d.value(), self.freq_scale_2d.value())
             self.canvas_2d.draw_idle()
         elif self.plot_tabs.currentIndex() == 2:
-            self.canvas_ice.axes[2].set_xlim(-self.freq_scale_ice.value(), self.freq_scale_ice.value())
-            self.canvas_ice.axes[2].set_ylim(-self.freq_scale_ice.value(), self.freq_scale_ice.value())
-            self.canvas_ice.axes[3].set_xlim(-self.freq_scale_ice.value(), self.freq_scale_ice.value())
-            self.canvas_ice.axes[3].set_ylim(-self.freq_scale_ice.value(), self.freq_scale_ice.value())
+            self.canvas_ice.axes[2].set_xlim(
+                -self.freq_scale_ice.value(), self.freq_scale_ice.value()
+            )
+            self.canvas_ice.axes[2].set_ylim(
+                -self.freq_scale_ice.value(), self.freq_scale_ice.value()
+            )
+            self.canvas_ice.axes[3].set_xlim(
+                -self.freq_scale_ice.value(), self.freq_scale_ice.value()
+            )
+            self.canvas_ice.axes[3].set_ylim(
+                -self.freq_scale_ice.value(), self.freq_scale_ice.value()
+            )
             self.canvas_ice.draw_idle()
 
-    def zoom_2d_image(self, key: str, value: float | int ) -> None:
+    def zoom_2d_image(self, key: str, value: float | int) -> None:
         """
         Zoom on 2D image by updating axes limits.
 
         Args:
-            key (str): The name of the image being updated. 
+            key (str): The name of the image being updated.
             value (float | int): The new value for the zoom factor.
         """
         center = self.image_size / 2
@@ -949,11 +1163,17 @@ class AppController(CTFSimGUI):
         Adjust the contrast of both original and convolved images.
         """
         value = self.contrast_scale_image.value()
-        range = [100-value, value]
+        range = [100 - value, value]
 
-        if self.contrast_sync_checkbox.isChecked():           
-            vmin = min(np.percentile(self.image_data, 100 - value), np.percentile(self.scaled_convolved, 100 - value)) 
-            vmax = max(np.percentile(self.image_data, value), np.percentile(self.scaled_convolved, value))
+        if self.contrast_sync_checkbox.isChecked():
+            vmin = min(
+                np.percentile(self.image_data, 100 - value),
+                np.percentile(self.scaled_convolved, 100 - value),
+            )
+            vmax = max(
+                np.percentile(self.image_data, value),
+                np.percentile(self.scaled_convolved, value),
+            )
             self.image_original.set_clim(vmin=vmin, vmax=vmax)
             self.image_convolved.set_clim(vmin=vmin, vmax=vmax)
         else:
@@ -961,15 +1181,15 @@ class AppController(CTFSimGUI):
             self.image_convolved.set_clim(*np.percentile(self.scaled_convolved, range))
 
         self.canvas_image.draw_idle()
-        
+
     def adjust_contrast_fft(self, value: float | int) -> None:
         """
         Adjust the contrast of fft image.
 
         Args:
-            value (float | int): The new contrast percentile. 
+            value (float | int): The new contrast percentile.
         """
-        vmin, vmax = np.percentile(self.scaled_fft, [100-value, value])
+        vmin, vmax = np.percentile(self.scaled_fft, [100 - value, value])
         self.image_fft.set_clim(vmin=vmin, vmax=vmax)
 
         self.canvas_image.draw_idle()
@@ -981,7 +1201,7 @@ class AppController(CTFSimGUI):
         if self.plot_tabs.currentIndex() == 1:
             current_vmin, _ = self.image.get_clim()
             if current_vmin != 0:
-                vmin = -self.gray_scale_2d.value()               
+                vmin = -self.gray_scale_2d.value()
             else:
                 vmin = 0
             vmax = self.gray_scale_2d.value()
@@ -990,7 +1210,7 @@ class AppController(CTFSimGUI):
         elif self.plot_tabs.currentIndex() == 2:
             current_vmin, _ = self.ice_image.get_clim()
             if current_vmin != 0:
-                vmin = -self.gray_scale_ice.value()               
+                vmin = -self.gray_scale_ice.value()
             else:
                 vmin = 0
             vmax = self.gray_scale_ice.value()
@@ -1000,7 +1220,7 @@ class AppController(CTFSimGUI):
         elif self.plot_tabs.currentIndex() == 3:
             current_vmin, _ = self.tomo_image.get_clim()
             if current_vmin != 0:
-                vmin = -self.gray_scale_tomo.value()               
+                vmin = -self.gray_scale_tomo.value()
             else:
                 vmin = 0
             vmax = self.gray_scale_tomo.value()
@@ -1017,7 +1237,7 @@ class AppController(CTFSimGUI):
         self.line_ed[0].set_visible(self.show_detector.isChecked())
         self.line_te[0].set_visible(self.show_total.isChecked())
         self.line_y0.set_visible(self.show_y0.isChecked())
-        self.legend_1d = self.canvas_1d.axes[1].legend(fontsize=16)
+        self.legend_1d = self.canvas_1d.axes[1].legend(fontsize=self.font_sizes["medium"])
         self.legend_1d.set_visible(self.show_legend.isChecked())
         self.canvas_1d.draw_idle()
 
@@ -1034,7 +1254,7 @@ class AppController(CTFSimGUI):
         self.plot_1d_y_min.setValue(ylim[0])
         self.plot_1d_y_max.setValue(ylim[1])
         self.canvas_ice.axes[1].set_ylim(*ylim)
-        
+
         # Renormalize the 2D images
         self.image.set_norm(Normalize(vmin=ylim[0], vmax=ylim[1]))
         self.ice_image_ref.set_norm(Normalize(vmin=ylim[0], vmax=ylim[1]))
@@ -1051,7 +1271,7 @@ class AppController(CTFSimGUI):
         # Reset spatial frequency
         self.freq_scale_2d.setValue(0.5)
         self.freq_scale_ice.setValue(0.5)
-        
+
         self.update_plot()
 
     def reset_parameters(self) -> None:
@@ -1066,8 +1286,11 @@ class AppController(CTFSimGUI):
         """Opens a file dialog and saves the plots in the current tab as an image."""
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save Plot", "", "PNG Files (*.png);;JPEG Files (*.jpg);;PDF Files (*.pdf);;All Files (*)",
-            options=options
+            self,
+            "Save Plot",
+            "",
+            "PNG Files (*.png);;JPEG Files (*.jpg);;PDF Files (*.pdf);;All Files (*)",
+            options=options,
         )
 
         if not file_path:
@@ -1089,8 +1312,7 @@ class AppController(CTFSimGUI):
         wrap_func = self._setup_ctf_wrap_func()
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save Data", "", "CSV Files (*.csv);;All Files (*)",
-            options=options
+            self, "Save Data", "", "CSV Files (*.csv);;All Files (*)", options=options
         )
 
         if not file_path:
@@ -1114,65 +1336,95 @@ class AppController(CTFSimGUI):
                 self._generate_ctf_1d_data(wrap_func).to_csv(f, index=False)
 
                 f.write("\n# 2D CTF\n")
-                self._generate_ctf_2d_data(wrap_func, x_full, y_full, ice=True).to_csv(f, index=False)
+                self._generate_ctf_2d_data(wrap_func, x_full, y_full, ice=True).to_csv(
+                    f, index=False
+                )
         elif tab_index == 3:  # Tomo CTF
-            x_full, y_full =self._get_full_meshgrid(self.fx, self.fy)
+            x_full, y_full = self._get_full_meshgrid(self.fx, self.fy)
             df = self._generate_ctf_tomo_data(wrap_func, x_full, y_full)
             df.to_csv(file_path, index=False)
         elif tab_index == 4:  # Image CTF
-            x_full, y_full =self._get_full_meshgrid(self.fx, self.fy)
+            x_full, y_full = self._get_full_meshgrid(self.fx, self.fy)
             df = self._generate_ctf_image_data(wrap_func, x_full, y_full)
             df.to_csv(file_path, index=False)
 
     def _generate_ctf_1d_data(self, wrap_func) -> pd.DataFrame:
         """Generates 1D CTF data as a pandas DataFrame."""
-        return pd.DataFrame({
-            "freqs_1d": self.freqs_1d,
-            "ctf": wrap_func(self.ctf_1d.ctf_1d(self.freqs_1d)),
-            "ctf_dampened": wrap_func(self.ctf_1d.dampened_ctf_1d(self.freqs_1d)),
-            "applied_temporal_env": wrap_func(self.ctf_1d.Et(self.freqs_1d)),
-            "applied_spatial_env": wrap_func(self.ctf_1d.Es_1d(self.freqs_1d)),
-            "applied_detector_env": wrap_func(self.ctf_1d.Ed(self.freqs_1d)),
-            "applied_total_env": wrap_func(self.ctf_1d.Etotal_1d(self.freqs_1d)),
-        })
+        return pd.DataFrame(
+            {
+                "freqs_1d": self.freqs_1d,
+                "ctf": wrap_func(self.ctf_1d.ctf_1d(self.freqs_1d)),
+                "ctf_dampened": wrap_func(self.ctf_1d.dampened_ctf_1d(self.freqs_1d)),
+                "applied_temporal_env": wrap_func(self.ctf_1d.Et(self.freqs_1d)),
+                "applied_spatial_env": wrap_func(self.ctf_1d.Es_1d(self.freqs_1d)),
+                "applied_detector_env": wrap_func(self.ctf_1d.Ed(self.freqs_1d)),
+                "applied_total_env": wrap_func(self.ctf_1d.Etotal_1d(self.freqs_1d)),
+            }
+        )
 
     def _generate_ctf_2d_data(self, wrap_func, x_full, y_full, ice: bool) -> pd.DataFrame:
         """Generates 2D CTF data as a pandas DataFrame."""
-        return pd.DataFrame({
-            "freqs_x": x_full.flatten(),
-            "freqs_y": y_full.flatten(),
-            "ctf_no_ice": wrap_func(self.ctf_2d.ctf_2d(self.fx_fix, self.fy_fix)).flatten(),
-            "ctf_no_ice_dampened": wrap_func(self.ctf_2d.dampened_ctf_2d(self.fx_fix, self.fy_fix)).flatten(),
-            "ctf_ice": wrap_func(self.ctf_2d.ctf_ice(self.fx_fix, self.fy_fix)).flatten() if ice else None,
-            "ctf_ice_dampened": wrap_func(self.ctf_2d.dampened_ctf_ice(self.fx_fix, self.fy_fix)).flatten() if ice else None,
-            "applied_total_env": wrap_func(self.ctf_2d.Etotal_2d(self.fx_fix, self.fy_fix)).flatten(),
-        })
-    
+        return pd.DataFrame(
+            {
+                "freqs_x": x_full.flatten(),
+                "freqs_y": y_full.flatten(),
+                "ctf_no_ice": wrap_func(self.ctf_2d.ctf_2d(self.fx_fix, self.fy_fix)).flatten(),
+                "ctf_no_ice_dampened": wrap_func(
+                    self.ctf_2d.dampened_ctf_2d(self.fx_fix, self.fy_fix)
+                ).flatten(),
+                "ctf_ice": (
+                    wrap_func(self.ctf_2d.ctf_ice(self.fx_fix, self.fy_fix)).flatten()
+                    if ice
+                    else None
+                ),
+                "ctf_ice_dampened": (
+                    wrap_func(self.ctf_2d.dampened_ctf_ice(self.fx_fix, self.fy_fix)).flatten()
+                    if ice
+                    else None
+                ),
+                "applied_total_env": wrap_func(
+                    self.ctf_2d.Etotal_2d(self.fx_fix, self.fy_fix)
+                ).flatten(),
+            }
+        )
+
     def _generate_ctf_tomo_data(self, wrap_func, x_full, y_full) -> pd.DataFrame:
         """Generates tomo CTF data as a pandas DataFrame."""
-        return pd.DataFrame({
-            "freqs_x": x_full.flatten(),
-            "freqs_y": y_full.flatten(),
-            "ctf_no_tilt": wrap_func(self.ctf_tomo_ref.ctf_ice(self.fx, self.fy)).flatten(),
-            "ctf_no_tilt_dampened": wrap_func(self.ctf_tomo_ref.dampened_ctf_ice(self.fx, self.fy)).flatten(),
-            "ctf_tilt": wrap_func(self.ctf_tomo_tilt.ctf_ice(self.fx, self.fy)).flatten(),
-            "ctf_tilt_dampened": wrap_func(self.ctf_tomo_tilt.dampened_ctf_ice(self.fx, self.fy)).flatten(),
-            "applied_total_env": wrap_func(self.ctf_tomo_ref.Etotal_2d(self.fx, self.fy)).flatten(),
-        })
-    
+        return pd.DataFrame(
+            {
+                "freqs_x": x_full.flatten(),
+                "freqs_y": y_full.flatten(),
+                "ctf_no_tilt": wrap_func(self.ctf_tomo_ref.ctf_ice(self.fx, self.fy)).flatten(),
+                "ctf_no_tilt_dampened": wrap_func(
+                    self.ctf_tomo_ref.dampened_ctf_ice(self.fx, self.fy)
+                ).flatten(),
+                "ctf_tilt": wrap_func(self.ctf_tomo_tilt.ctf_ice(self.fx, self.fy)).flatten(),
+                "ctf_tilt_dampened": wrap_func(
+                    self.ctf_tomo_tilt.dampened_ctf_ice(self.fx, self.fy)
+                ).flatten(),
+                "applied_total_env": wrap_func(
+                    self.ctf_tomo_ref.Etotal_2d(self.fx, self.fy)
+                ).flatten(),
+            }
+        )
+
     def _generate_ctf_image_data(self, wrap_func, x_full, y_full) -> pd.DataFrame:
         """Generates image CTF data as a pandas DataFrame."""
-        return pd.DataFrame({
-            "original_image": self.image_data.flatten(),
-            "image_fft": self.image_data_fft.flatten(),
-            "image_fft_amplitude": self.scaled_fft.flatten(),
-            "freqs_x": x_full.flatten(),
-            "freqs_y": y_full.flatten(),
-            "ctf": wrap_func(self.ctf_2d.ctf_ice(self.fx, self.fy)).flatten(),
-            "ctf_dampened": wrap_func(self.ctf_2d.dampened_ctf_2d(self.fx, self.fy)).flatten(),
-            "applied_total_env": wrap_func(self.ctf_2d.Etotal_2d(self.fx_fix, self.fy_fix)).flatten(),
-            "convolved_image": self.scaled_convolved.flatten(),
-        })
+        return pd.DataFrame(
+            {
+                "original_image": self.image_data.flatten(),
+                "image_fft": self.image_data_fft.flatten(),
+                "image_fft_amplitude": self.scaled_fft.flatten(),
+                "freqs_x": x_full.flatten(),
+                "freqs_y": y_full.flatten(),
+                "ctf": wrap_func(self.ctf_2d.ctf_ice(self.fx, self.fy)).flatten(),
+                "ctf_dampened": wrap_func(self.ctf_2d.dampened_ctf_2d(self.fx, self.fy)).flatten(),
+                "applied_total_env": wrap_func(
+                    self.ctf_2d.Etotal_2d(self.fx_fix, self.fy_fix)
+                ).flatten(),
+                "convolved_image": self.scaled_convolved.flatten(),
+            }
+        )
 
     def _get_full_meshgrid(self, x, y) -> tuple[np.ndarray, np.ndarray]:
         """Generates a full meshgrid for 2D frequency data."""
@@ -1193,85 +1445,111 @@ class AppController(CTFSimGUI):
             if event.inaxes == self.canvas_1d.axes[1]:
                 x, y = event.xdata, event.ydata
                 if x is not None and y is not None:
-                    res = 1. / x
+                    res = 1.0 / x
                     value = wrap_func(self.ctf_1d.dampened_ctf_1d(np.array([x])))[0]
                     self.annotation_1d.xy = (x, y)
-                    self.annotation_1d.set_text(f"x: {x:.3f} Å⁻¹\ny: {y:.3f}\nres: {res:.2f} Å\nctf: {value:.4f}")
+                    self.annotation_1d.set_text(
+                        f"x: {x:.3f} Å⁻¹\ny: {y:.3f}\nres: {res:.2f} Å\nctf: {value:.4f}"
+                    )
                     self.annotation_1d.set_visible(True)
                     self.canvas_1d.draw_idle()
             elif event.inaxes == self.canvas_2d.axes[1]:
                 x, y = event.xdata, event.ydata
                 if x is not None and y is not None:
-                    res = 1. / math.sqrt(x**2 + y**2)
+                    res = 1.0 / math.sqrt(x**2 + y**2)
                     # angle = math.degrees(math.atan2(y, x))
                     self.annotation_2d.xy = (x, y)
                     value = wrap_func(self.ctf_2d.dampened_ctf_2d(np.array([x]), np.array([y])))[0]
-                    self.annotation_2d.set_text(f"x: {x:.3f} Å⁻¹\ny: {y:.3f} Å⁻¹\nres: {res:.2f} Å\nctf: {value:.4f}")
+                    self.annotation_2d.set_text(
+                        f"x: {x:.3f} Å⁻¹\ny: {y:.3f} Å⁻¹\nres: {res:.2f} Å\nctf: {value:.4f}"
+                    )
                     self.annotation_2d.set_visible(True)
                     self.canvas_2d.draw_idle()
             elif event.inaxes == self.canvas_ice.axes[1]:
                 x, y = event.xdata, event.ydata
                 if x is not None and y is not None:
-                    res = 1. / x
+                    res = 1.0 / x
                     value_no_ice = wrap_func(self.ctf_1d.dampened_ctf_1d(np.array([x])))[0]
                     value_ice = wrap_func(self.ctf_1d.dampened_ctf_ice(np.array([x])))[0]
                     self.annotation_ice_1d.xy = (x, y)
-                    self.annotation_ice_1d.set_text(f"x: {x:.3f} Å⁻¹\nres: {res:.2f} Å\ngray: {value_no_ice:.4f}\npurple: {value_ice:.4f}")
+                    self.annotation_ice_1d.set_text(
+                        f"x: {x:.3f} Å⁻¹\nres: {res:.2f} Å\ngray: {value_no_ice:.4f}\npurple: {value_ice:.4f}"
+                    )
                     self.annotation_ice_1d.set_visible(True)
                     self.canvas_ice.draw_idle()
             elif event.inaxes == self.canvas_ice.axes[2]:
                 x, y = event.xdata, event.ydata
                 if x is not None and y is not None:
-                    res = 1. / math.sqrt(x**2 + y**2)
+                    res = 1.0 / math.sqrt(x**2 + y**2)
                     self.annotation_ice_ref.xy = (x, y)
                     value = wrap_func(self.ctf_2d.dampened_ctf_2d(np.array([x]), np.array([y])))[0]
-                    self.annotation_ice_ref.set_text(f"x: {x:.3f} Å⁻¹\ny: {y:.3f} Å⁻¹\nres: {res:.2f} Å\nctf: {value:.4f}")
+                    self.annotation_ice_ref.set_text(
+                        f"x: {x:.3f} Å⁻¹\ny: {y:.3f} Å⁻¹\nres: {res:.2f} Å\nctf: {value:.4f}"
+                    )
                     self.annotation_ice_ref.set_visible(True)
                     self.canvas_ice.draw_idle()
             elif event.inaxes == self.canvas_ice.axes[3]:
                 x, y = event.xdata, event.ydata
                 if x is not None and y is not None:
-                    res = 1. / math.sqrt(x**2 + y**2)
+                    res = 1.0 / math.sqrt(x**2 + y**2)
                     self.annotation_ice_ctf.xy = (x, y)
                     value = wrap_func(self.ctf_2d.dampened_ctf_ice(np.array([x]), np.array([y])))[0]
-                    self.annotation_ice_ctf.set_text(f"x: {x:.3f} Å⁻¹\n"
-                                                    f"y: {y:.3f} Å⁻¹\n"
-                                                    f"res: {res:.2f} Å\n"
-                                                    f"ctf: {value:.4f}")
+                    self.annotation_ice_ctf.set_text(
+                        f"x: {x:.3f} Å⁻¹\n"
+                        f"y: {y:.3f} Å⁻¹\n"
+                        f"res: {res:.2f} Å\n"
+                        f"ctf: {value:.4f}"
+                    )
                     self.annotation_ice_ctf.set_visible(True)
                     self.canvas_ice.draw_idle()
             elif event.inaxes == self.canvas_tomo.axes[1]:
                 x, y = event.xdata, event.ydata
                 if x is not None and y is not None:
                     tilt_angle_rad = abs(math.radians(self.tilt_slider_tomo.get_value()))
-                    thickness = self.width_tomo * math.sin(tilt_angle_rad) +  self.height_tomo * math.cos(tilt_angle_rad)
-                    self.annotation_tomo_diagram_state.set_text(f"size: {self.sample_size_tomo.value():.2f} µm\n"
-                                                                f"tilt angle: {self.tilt_slider_tomo.get_value():.1f}°\n"
-                                                                f"thk.: {thickness:.1f} nm")
+                    thickness = self.width_tomo * math.sin(
+                        tilt_angle_rad
+                    ) + self.height_tomo * math.cos(tilt_angle_rad)
+                    self.annotation_tomo_diagram_state.set_text(
+                        f"size: {self.sample_size_tomo.value():.2f} µm\n"
+                        f"tilt angle: {self.tilt_slider_tomo.get_value():.1f}°\n"
+                        f"thk.: {thickness:.1f} nm"
+                    )
                     self.annotation_tomo_diagram_state.set_visible(True)
                     self.canvas_tomo.draw_idle()
             elif event.inaxes == self.canvas_tomo.axes[3]:
                 x, y = event.xdata, event.ydata
                 if x is not None and y is not None:
-                    res = 1. / math.sqrt(x**2 + y**2)
+                    res = 1.0 / math.sqrt(x**2 + y**2)
                     # angle = math.degrees(math.atan2(y, x))
                     self.annotation_tomo_ref_ctf.xy = (x, y)
-                    value = wrap_func(self.ctf_tomo_ref.dampened_ctf_ice(np.array([x]), np.array([y])))[0]
-                    self.annotation_tomo_ref_ctf.set_text(f"tilt angle: 0°\n"
-                                                        f"x: {x:.3f} Å⁻¹\n"
-                                                        f"y: {y:.3f} Å⁻¹\n"
-                                                        f"res: {res:.2f} Å\n"
-                                                        f"ctf: {value:.4f}")
+                    value = wrap_func(
+                        self.ctf_tomo_ref.dampened_ctf_ice(np.array([x]), np.array([y]))
+                    )[0]
+                    self.annotation_tomo_ref_ctf.set_text(
+                        f"tilt angle: 0°\n"
+                        f"x: {x:.3f} Å⁻¹\n"
+                        f"y: {y:.3f} Å⁻¹\n"
+                        f"res: {res:.2f} Å\n"
+                        f"ctf: {value:.4f}"
+                    )
                     self.annotation_tomo_ref_ctf.set_visible(True)
                     self.canvas_tomo.draw_idle()
             elif event.inaxes == self.canvas_tomo.axes[4]:
                 x, y = event.xdata, event.ydata
                 if x is not None and y is not None:
-                    res = 1. / math.sqrt(x**2 + y**2)
+                    res = 1.0 / math.sqrt(x**2 + y**2)
                     # angle = math.degrees(math.atan2(y, x))
                     self.annotation_tomo_tilt_ctf.xy = (x, y)
-                    value = wrap_func(self.ctf_tomo_tilt.dampened_ctf_ice(np.array([x]), np.array([y])))[0]
-                    self.annotation_tomo_tilt_ctf.set_text(f"tilt angle: {self.tilt_slider_tomo.get_value():.1f}°\nx: {x:.3f} Å⁻¹\ny: {y:.3f} Å⁻¹\nres: {res:.2f} Å\nctf: {value:.4f}")
+                    value = wrap_func(
+                        self.ctf_tomo_tilt.dampened_ctf_ice(np.array([x]), np.array([y]))
+                    )[0]
+                    self.annotation_tomo_tilt_ctf.set_text(
+                        f"tilt angle: {self.tilt_slider_tomo.get_value():.1f}°\n"
+                        f"x: {x:.3f} Å⁻¹\n"
+                        f"y: {y:.3f} Å⁻¹\n"
+                        f"res: {res:.2f} Å\n"
+                        f"ctf: {value:.4f}"
+                    )
                     self.annotation_tomo_tilt_ctf.set_visible(True)
                     self.canvas_tomo.draw_idle()
             elif event.inaxes == self.canvas_image.axes[1]:
@@ -1287,11 +1565,10 @@ class AppController(CTFSimGUI):
                 if x is not None and y is not None:
                     x_freq = (2 * x / self.image_size - 1) * self.nyquist
                     y_freq = (2 * y / self.image_size - 1) * self.nyquist
-                    res = 1. / math.sqrt(x_freq**2 + y_freq**2)
+                    res = 1.0 / math.sqrt(x_freq**2 + y_freq**2)
                     self.annotation_image_fft.xy = (x, y)
                     value = self.scaled_fft[int(y), int(x)]
-                    self.annotation_image_fft.set_text(f"res: {res:.2f} Å\n"
-                                                    f"amp: {value:.2f}")
+                    self.annotation_image_fft.set_text(f"res: {res:.2f} Å\n" f"amp: {value:.2f}")
                     self.annotation_image_fft.set_visible(True)
                     self.canvas_image.draw_idle()
             elif event.inaxes == self.canvas_image.axes[3]:
@@ -1305,11 +1582,12 @@ class AppController(CTFSimGUI):
             elif event.inaxes == self.canvas_image.axes[4]:
                 x, y = event.xdata, event.ydata
                 if x is not None and y is not None:
-                    res = 1. / math.sqrt(x**2 + y**2)
+                    res = 1.0 / math.sqrt(x**2 + y**2)
                     self.annotation_image_ctf_convolve.xy = (x, y)
                     value = wrap_func(self.ctf_2d.dampened_ctf_2d(np.array([x]), np.array([y])))[0]
-                    self.annotation_image_ctf_convolve.set_text(f"res: {res:.2f} Å\n"
-                                                                f"ctf: {value:.4f}")
+                    self.annotation_image_ctf_convolve.set_text(
+                        f"res: {res:.2f} Å\n" f"ctf: {value:.4f}"
+                    )
                     self.annotation_image_ctf_convolve.set_visible(True)
                     self.canvas_image.draw_idle()
             else:
@@ -1342,13 +1620,17 @@ class AppController(CTFSimGUI):
             self._update_sample_tomo()
             self.ctf_tomo_ref.ice_thickness = value
             tilt_angle_rad = abs(math.radians(self.tilt_slider_tomo.get_value()))
-            self.ctf_tomo_tilt.ice_thickness = self.width_tomo * math.sin(tilt_angle_rad) +  self.height_tomo * math.cos(tilt_angle_rad)
+            self.ctf_tomo_tilt.ice_thickness = self.width_tomo * math.sin(
+                tilt_angle_rad
+            ) + self.height_tomo * math.cos(tilt_angle_rad)
             self.update_plot()
         elif key == "tilt_angle":
             self._rotate_sample(value)
             height_tomo = self.sample_thickness_slider_tomo.get_value()  # in nm
             tilt_angle_rad = abs(math.radians(value))
-            self.ctf_tomo_tilt.ice_thickness = self.width_tomo * math.sin(tilt_angle_rad) +  height_tomo * math.cos(tilt_angle_rad)
+            self.ctf_tomo_tilt.ice_thickness = self.width_tomo * math.sin(
+                tilt_angle_rad
+            ) + height_tomo * math.cos(tilt_angle_rad)
             self.update_plot()
         elif key == "df_diff":
             self.ctf_tomo_ref.df_diff = value
@@ -1363,23 +1645,26 @@ class AppController(CTFSimGUI):
             self._update_sample_tomo()
             height_tomo = self.sample_thickness_slider_tomo.get_value()  # in nm
             tilt_angle_rad = abs(math.radians(self.tilt_slider_tomo.get_value()))
-            self.ctf_tomo_tilt.ice_thickness = self.width_tomo * math.sin(tilt_angle_rad) +  height_tomo * math.cos(tilt_angle_rad)
+            self.ctf_tomo_tilt.ice_thickness = self.width_tomo * math.sin(
+                tilt_angle_rad
+            ) + height_tomo * math.cos(tilt_angle_rad)
             self.update_plot()
 
         self.canvas_tomo.draw_idle()
 
     def _update_sample_tomo(self):
         """Change the size of the sample rectangle."""
-        self.sample_rect.set_xy((-self.width_tomo / 2., -self.height_tomo / 2.))
+        self.sample_rect.set_xy((-self.width_tomo / 2.0, -self.height_tomo / 2.0))
         self.sample_rect.set_width(self.width_tomo)
         self.sample_rect.set_height(self.height_tomo)
 
     def _rotate_sample(self, angle: float) -> None:
         """Apply a rotation transformation around the center of the sample rectangle."""
         # Create a transformation: first translate to (0,0), then rotate, then translate back
-        transform = (transforms.Affine2D()
-                     .rotate_deg_around(self.center_x_tomo, self.center_y_tomo, angle)
-                     + self.canvas_tomo.axes[1].transData)
+        transform = (
+            transforms.Affine2D().rotate_deg_around(self.center_x_tomo, self.center_y_tomo, angle)
+            + self.canvas_tomo.axes[1].transData
+        )
 
         # Apply the transformation
         self.sample_rect.set_transform(transform)
@@ -1409,14 +1694,15 @@ class AppController(CTFSimGUI):
         self.image_data_fft = np.fft.fftshift(np.fft.fft2(self.image_data))
         self.scaled_fft = np.abs(self.image_data_fft)
 
-        vmin, vmax = np.percentile(self.scaled_fft, 
-                                [100 - self.contrast_scale_fft.value(), self.contrast_scale_fft.value()])
+        vmin, vmax = np.percentile(
+            self.scaled_fft,
+            [100 - self.contrast_scale_fft.value(), self.contrast_scale_fft.value()],
+        )
 
         self.image_original.set_data(self.image_data)
         self.image_fft.set_data(self.scaled_fft)
         self.image_fft.set_clim(vmin=vmin, vmax=vmax)
 
-        self._update_ticks_for_fft()
         self.update_plot()
 
     def _update_ticks_for_fft(self) -> None:
@@ -1437,14 +1723,14 @@ class AppController(CTFSimGUI):
     def _invert_contrast(self) -> None:
         # Toggle the contrast state
         self.image_contrast_inverted = not self.image_contrast_inverted
-        
+
         # Flip colormap accordingly
         if self.image_contrast_inverted:
-            self.image_original.set_cmap('Greys_r')  # Inverted colormap
-            self.image_convolved.set_cmap('Greys_r')
+            self.image_original.set_cmap("Greys_r")  # Inverted colormap
+            self.image_convolved.set_cmap("Greys_r")
         else:
-            self.image_original.set_cmap('Greys')    # Normal colormap
-            self.image_convolved.set_cmap('Greys')
+            self.image_original.set_cmap("Greys")  # Normal colormap
+            self.image_convolved.set_cmap("Greys")
 
         self.canvas_image.draw_idle()
 
@@ -1458,7 +1744,7 @@ class AppController(CTFSimGUI):
                 btn.blockSignals(True)
                 btn.setChecked(checked)
                 btn.blockSignals(False)
-    
+
     def _load_and_prepare_image(self, path: str) -> np.ndarray:
         """
         Load an image, convert to grayscale, crop to square, resize to self.image_size, and normalize.
@@ -1471,7 +1757,9 @@ class AppController(CTFSimGUI):
             np.ndarray: A (self.image_size x self.image_size) normalized grayscale image.
         """
         if not os.path.exists(path):
-            print(f"[Warning] Image not found at '{path}'. Generating a random image of size {self.image_size}x{self.image_size}.")
+            print(
+                f"[Warning] Image not found at '{path}'. Generating a random image of size {self.image_size}x{self.image_size}."
+            )
             return np.random.rand(self.image_size, self.image_size)
 
         try:
@@ -1484,7 +1772,9 @@ class AppController(CTFSimGUI):
             right = left + crop_size
             lower = upper + crop_size
             image = image.crop((left, upper, right, lower))
-            image = image.resize((self.image_size, self.image_size), Image.LANCZOS)
+            image = image.resize(
+                (self.image_size, self.image_size), Image.LANCZOS  # pylint: disable=no-member
+            )
 
             return np.array(image, dtype=np.float32) / 255.0
 
@@ -1493,10 +1783,12 @@ class AppController(CTFSimGUI):
             return np.random.rand(self.image_size, self.image_size)
 
     def show_info(self) -> None:
-        """Show additonal info for the specific tab
-        """
+        """Show additonal info for the specific tab"""
         if self.plot_tabs.currentIndex() == 0:
-            QMessageBox.information(self, "", (
+            QMessageBox.information(
+                self,
+                "",
+                (
                     "<span style='font-weight:normal;'>"
                     "<b>Notes:</b><br><br>"
                     "1) The controls on the left panel affect CTF calculations across all tabs.<br>"
@@ -1524,9 +1816,13 @@ class AppController(CTFSimGUI):
                     "4) Save the entire tab as a PNG image using the save plot button.<br>"
                     "5) Export all simulation data to a CSV file for further analysis."
                     "</span>"
-                ))
+                ),
+            )
         elif self.plot_tabs.currentIndex() == 1:
-            QMessageBox.information(self, "", (
+            QMessageBox.information(
+                self,
+                "",
+                (
                     "<span style='font-weight:normal;'>"
                     "<b>Equations used:</b>"
                     "<pre style='font-family: Menlo, Monaco, Consolas, 'Courier New', monospace;'>"
@@ -1542,9 +1838,13 @@ class AppController(CTFSimGUI):
                     "4) Save the entire tab as a PNG image using the save plot button.<br>"
                     "5) Export all simulation data to a CSV file for further analysis."
                     "</span>"
-                ))
+                ),
+            )
         elif self.plot_tabs.currentIndex() == 2:
-            QMessageBox.information(self, "", (
+            QMessageBox.information(
+                self,
+                "",
+                (
                     "<span style='font-weight:normal;'>"
                     "<b>Notes:</b><br><br>"
                     "The equation below is derived by integrating the CTF over a range of defocus values to "
@@ -1562,9 +1862,13 @@ class AppController(CTFSimGUI):
                     "4) Save the entire tab as a PNG image using the save plot button.<br>"
                     "5) Export all simulation data to a CSV file for further analysis."
                     "</span>"
-                ))
+                ),
+            )
         elif self.plot_tabs.currentIndex() == 3:
-            QMessageBox.information(self, "", (
+            QMessageBox.information(
+                self,
+                "",
+                (
                     "<span style='font-weight:normal;'>"
                     "<b>This simulation assumes:</b><br><br>"
                     "1) The electron beam remains parallel to the optical axis.<br>"
@@ -1581,9 +1885,13 @@ class AppController(CTFSimGUI):
                     "4) Save the entire tab as a PNG image using the save plot button.<br>"
                     "5) Export all simulation data to a CSV file for further analysis."
                     "</span>"
-                ))
+                ),
+            )
         elif self.plot_tabs.currentIndex() == 4:
-            QMessageBox.information(self, "", (
+            QMessageBox.information(
+                self,
+                "",
+                (
                     "<span style='font-weight:normal;'>"
                     "<b>Notes:</b><br><br>"
                     "1) Uploaded images are cropped and resized to the default image size.<br>"
@@ -1607,7 +1915,8 @@ class AppController(CTFSimGUI):
                     "4) Save the entire tab as a PNG image using the save plot button.<br>"
                     "5) Export all simulation data to a CSV file for further analysis."
                     "</span>"
-                ))
+                ),
+            )
 
 
 if __name__ == "__main__":

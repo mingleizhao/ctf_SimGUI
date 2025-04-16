@@ -42,7 +42,7 @@ QSlider::add-page:horizontal {
 }
 """
 
-LEFT_PANEL_QGROUPBOX_STYLE ="""
+LEFT_PANEL_QGROUPBOX_STYLE = """
 QGroupBox {
     font-size: 16px; /* Set font size */
     font-weight: bold; /* Make it bold */
@@ -59,7 +59,7 @@ QGroupBox::title {
 }
 """
 
-RIGHT_PANEL_QGROUPBOX_STYLE ="""
+RIGHT_PANEL_QGROUPBOX_STYLE = """
 QGroupBox {
     font-size: 16px; /* Set font size */
     font-weight: bold; /* Make it bold */
@@ -130,5 +130,29 @@ QPushButton:hover {
 QPushButton:checked {
     background-color: #3498db;
     color: white;
+}
+"""
+
+SCROLL_AREA_STYLE = """
+QScrollArea {
+    border: none;
+}
+QScrollBar:vertical, QScrollBar:horizontal {
+    width: 6px;
+    height: 6px;
+    background: transparent;
+}
+QScrollBar::handle:vertical {
+    background: #aaa;
+    border-radius: 3px;
+}
+QScrollBar::handle:horizontal {
+    background: #aaa;
+    border-radius: 3px;
+}
+QScrollBar::add-line, QScrollBar::sub-line {
+    background: none;
+    height: 0px;
+    width: 0px;
 }
 """

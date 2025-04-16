@@ -1,17 +1,40 @@
 import sys
 import matplotlib
+
 matplotlib.use("Qt5Agg")  # Use the Qt5 backend
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QLabel, QPushButton, 
-    QVBoxLayout, QHBoxLayout, QGroupBox, QTabWidget, QDoubleSpinBox,
-    QCheckBox, QComboBox, QRadioButton, QButtonGroup, QSizePolicy,
-    QGridLayout, QSpacerItem
+    QApplication,
+    QMainWindow,
+    QWidget,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QHBoxLayout,
+    QGroupBox,
+    QTabWidget,
+    QDoubleSpinBox,
+    QCheckBox,
+    QComboBox,
+    QRadioButton,
+    QButtonGroup,
+    QSizePolicy,
+    QGridLayout,
+    QScrollArea,
+    QDesktopWidget,
 )
+from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from customized_widgets import LabeledSlider
 from models import DetectorConfigs
-from styles import LEFT_PANEL_QGROUPBOX_STYLE, RIGHT_PANEL_QGROUPBOX_STYLE, QTABWIDGET_STYLE, BUTTON_STYLE, INFO_BUTTON_STYLE
+from styles import (
+    LEFT_PANEL_QGROUPBOX_STYLE,
+    RIGHT_PANEL_QGROUPBOX_STYLE,
+    QTABWIDGET_STYLE,
+    BUTTON_STYLE,
+    INFO_BUTTON_STYLE,
+    SCROLL_AREA_STYLE,
+)
 
 
 class MplCanvas(FigureCanvasQTAgg):
@@ -25,7 +48,7 @@ class MplCanvas(FigureCanvasQTAgg):
         width: float = 8.0,
         height: float = 6.0,
         dpi: int = 100,
-        subplot_grid: tuple[int, int] = (1, 1), 
+        subplot_grid: tuple[int, int] = (1, 1),
         subplot_args: dict | None = None,
     ) -> None:
         """
@@ -77,6 +100,7 @@ class CTFSimGUI(QMainWindow):
     A main window class providing a GUI for simulating the Contrast Transfer Function (CTF) in electron microscopy.
     It consists of parameter sections (microscope, imaging, plotting) on the left panel, and Matplotlib plots on the right panel.
     """
+
     def __init__(self, parent: QWidget | None = None) -> None:
         """
         Initialize the CTFSimGUI, setting up layouts, panels, and Matplotlib canvases.
@@ -88,6 +112,7 @@ class CTFSimGUI(QMainWindow):
 
         self.setWindowTitle("CTF Simulation")
         self.setMinimumSize(1620, 1080)
+        self._setup_font_size_and_line_width()
 
         # 1) Create main container widget and a main layout
         container = QWidget()
@@ -95,8 +120,18 @@ class CTFSimGUI(QMainWindow):
         self.main_layout = QHBoxLayout(container)
 
         # Left panel will hold the parameter widgets
-        self.left_panel = QVBoxLayout()
-        self.main_layout.addLayout(self.left_panel, stretch=0)
+        left_panel_widget = QWidget()
+        # left_panel_layout = QVBoxLayout(left_panel_widget)
+        self.left_panel = QVBoxLayout(left_panel_widget)
+        self.left_panel.setContentsMargins(0, 0, 0, 0)
+        self.left_panel.setSpacing(0)
+
+        # self.main_layout.addLayout(self.left_panel, stretch=0)
+        self.main_layout.addWidget(left_panel_widget, stretch=0)
+
+        left_panel_widget.setMinimumWidth(270)
+        left_panel_widget.setMaximumWidth(300)
+        left_panel_widget.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
 
         # Right panel will hold the plots
         self.right_panel = QVBoxLayout()
@@ -113,12 +148,37 @@ class CTFSimGUI(QMainWindow):
         self._build_plot_tabs()
 
         # 4) Populate the left panel
-        self.left_panel.addWidget(self.microscope_box)
-        self.left_panel.addWidget(self.imaging_box)
-        self.left_panel.addWidget(self.detector_box)
-        self.left_panel.addWidget(self.plotting_box)
-        self.left_panel.addLayout(self.button_box)
-        self.left_panel.addStretch()
+        # Create a widget that hold the group boxes
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        # scroll_layout.setContentsMargins(5, 5, 5, 5)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setSpacing(10)
+
+        # Add existing group boxes
+        scroll_layout.addWidget(self.microscope_box)
+        scroll_layout.addWidget(self.imaging_box)
+        scroll_layout.addWidget(self.detector_box)
+        scroll_layout.addWidget(self.plotting_box)
+        scroll_layout.addLayout(self.button_box)
+        scroll_layout.addStretch()
+
+        # Wrap the content in a QScrollArea
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(scroll_content)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll_area.setStyleSheet(SCROLL_AREA_STYLE)
+
+        self.left_panel.addWidget(scroll_area)
+
+        # self.left_panel.addWidget(self.microscope_box)
+        # self.left_panel.addWidget(self.imaging_box)
+        # self.left_panel.addWidget(self.detector_box)
+        # self.left_panel.addWidget(self.plotting_box)
+        # self.left_panel.addLayout(self.button_box)
+        # self.left_panel.addStretch()
 
         # 5) Put tabbed plots in the right panel
         self.right_panel.addWidget(self.plot_tabs)
@@ -129,14 +189,55 @@ class CTFSimGUI(QMainWindow):
         This section uses custom sliders from 'customized_widgets' for parameter control.
         """
         self.microscope_box = QGroupBox("Microscope Parameters")
-        
-        self.voltage_slider = LabeledSlider("Voltage (KV)", min_value=80, max_value=1000, step=20, value_format="{:.0f}")       
-        self.voltage_stability_slider = LabeledSlider("Voltage Stability", min_value=1e-9, max_value=1e-4, step=1e-9, value_format="{:.2e}", log_scale=True)       
-        self.electron_source_angle_slider = LabeledSlider("<b>e⁻</b> Angle Spread (rad)", min_value=1e-5, max_value=1e-2, step=1e-5, value_format="{:.1e}", log_scale=True)        
-        self.electron_source_spread_slider = LabeledSlider("<b>e⁻</b> Energy Spread (eV)", min_value=0, max_value=10, step=0.1, value_format="{:.1f}")
-        self.chromatic_aberr_slider = LabeledSlider("Chromatic Aberration (mm)", min_value=0., max_value=10, step=0.1, value_format="{:.1f}")
-        self.spherical_aberr_slider = LabeledSlider("Spherical Aberration (mm)", min_value=0., max_value=10, step=0.1, value_format="{:.1f}")
-        self.obj_lens_stability_slider = LabeledSlider("Objective Lens Stability", min_value=1e-9, max_value=1e-4, step=1e-9, value_format="{:.2e}", log_scale=True)
+
+        self.voltage_slider = LabeledSlider(
+            "Voltage (KV)", min_value=80, max_value=1000, step=20, value_format="{:.0f}"
+        )
+        self.voltage_stability_slider = LabeledSlider(
+            "Voltage Stability",
+            min_value=1e-9,
+            max_value=1e-4,
+            step=1e-9,
+            value_format="{:.2e}",
+            log_scale=True,
+        )
+        self.electron_source_angle_slider = LabeledSlider(
+            "<b>e⁻</b> Angle Spread (rad)",
+            min_value=1e-5,
+            max_value=1e-2,
+            step=1e-5,
+            value_format="{:.1e}",
+            log_scale=True,
+        )
+        self.electron_source_spread_slider = LabeledSlider(
+            "<b>e⁻</b> Energy Spread (eV)",
+            min_value=0,
+            max_value=10,
+            step=0.1,
+            value_format="{:.1f}",
+        )
+        self.chromatic_aberr_slider = LabeledSlider(
+            "Chromatic Aberration (mm)",
+            min_value=0.0,
+            max_value=10,
+            step=0.1,
+            value_format="{:.1f}",
+        )
+        self.spherical_aberr_slider = LabeledSlider(
+            "Spherical Aberration (mm)",
+            min_value=0.0,
+            max_value=10,
+            step=0.1,
+            value_format="{:.1f}",
+        )
+        self.obj_lens_stability_slider = LabeledSlider(
+            "Objective Lens Stability",
+            min_value=1e-9,
+            max_value=1e-4,
+            step=1e-9,
+            value_format="{:.2e}",
+            log_scale=True,
+        )
 
         layout = QVBoxLayout()
         layout.addWidget(self.voltage_slider)
@@ -156,9 +257,15 @@ class CTFSimGUI(QMainWindow):
         """
         self.imaging_box = QGroupBox("Imaging Parameters")
 
-        self.defocus_slider = LabeledSlider("Avg. Defocus (µm)", min_value=-5, max_value=10, step=0.01, value_format="{:.4f}")
-        self.amplitude_contrast_slider = LabeledSlider("Amplitude Contrast", min_value=0, max_value=1, step=0.01, value_format="{:.2f}")
-        self.additional_phase_slider = LabeledSlider("Additional Phase Shift (°)", min_value=0, max_value=180, step=1, value_format="{:.0f}") 
+        self.defocus_slider = LabeledSlider(
+            "Avg. Defocus (µm)", min_value=-5, max_value=10, step=0.01, value_format="{:.4f}"
+        )
+        self.amplitude_contrast_slider = LabeledSlider(
+            "Amplitude Contrast", min_value=0, max_value=1, step=0.01, value_format="{:.2f}"
+        )
+        self.additional_phase_slider = LabeledSlider(
+            "Additional Phase Shift (°)", min_value=0, max_value=180, step=1, value_format="{:.0f}"
+        )
 
         layout = QVBoxLayout()
         layout.addWidget(self.defocus_slider)
@@ -180,8 +287,10 @@ class CTFSimGUI(QMainWindow):
         # Populate the combo box with values from DETECTOR_REGISTERS
         self.detector_combo.addItems([detector.value["name"] for detector in DetectorConfigs])
 
-        self.pixel_size_slider = LabeledSlider("Pixel Size (Å)", min_value=0.5, max_value=5., step=0.1, value_format="{:.3f}" )
-  
+        self.pixel_size_slider = LabeledSlider(
+            "Pixel Size (Å)", min_value=0.5, max_value=5.0, step=0.1, value_format="{:.3f}"
+        )
+
         layout = QVBoxLayout()
         layout.addWidget(self.detector_label)
         layout.addWidget(self.detector_combo)
@@ -198,7 +307,7 @@ class CTFSimGUI(QMainWindow):
 
         # Create checkbox widgets
         self.envelope_label = QLabel("Envelope Function")
-        self.temporal_env_check = QCheckBox("Temporal")   
+        self.temporal_env_check = QCheckBox("Temporal")
         self.spatial_env_check = QCheckBox("Spatial")
         self.detector_env_check = QCheckBox("Detector")
 
@@ -209,7 +318,7 @@ class CTFSimGUI(QMainWindow):
         checkbox_layout.addWidget(self.temporal_env_check)
         checkbox_layout.addWidget(self.spatial_env_check)
         checkbox_layout.addWidget(self.detector_env_check)
-  
+
         # Create a horizontal layout for the radio buttons
         button_layout = QHBoxLayout()
 
@@ -253,11 +362,11 @@ class CTFSimGUI(QMainWindow):
         self.reset_button.setStyleSheet(BUTTON_STYLE)
         self.save_img_button = QPushButton("Save Plot")
         self.save_csv_button = QPushButton("Save CSV")
-        
+
         self.button_box.addWidget(self.reset_button)
         self.button_box.addWidget(self.save_img_button)
         self.button_box.addWidget(self.save_csv_button)
- 
+
     def _build_plot_tabs(self) -> None:
         """
         Create a QTabWidget with three tabs for 1D-CTF, 2D-CTF, ICE-CTF plots.
@@ -279,7 +388,9 @@ class CTFSimGUI(QMainWindow):
             QWidget: Widget containing the canvas and controls.
         """
         self.canvas_1d = MplCanvas(self, width=5, height=4)
-        self.canvas_1d.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Allow canvas to expand fully
+        self.canvas_1d.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
+        )  # Allow canvas to expand fully
 
         widget_1d = QWidget()
         layout_1d = QVBoxLayout(widget_1d)
@@ -287,20 +398,30 @@ class CTFSimGUI(QMainWindow):
 
         display_1d = QHBoxLayout()
 
-        self.xlim_slider_1d = LabeledSlider("X-axis Limit (Å⁻¹)", min_value=0.001, max_value=1.1, step=0.001, value_format="{:.3f}" )
-        self.ylim_slider_1d = LabeledSlider("y-axis Limit (Å⁻¹)", min_value=0.001, max_value=1.1, step=0.001, value_format="{:.3f}" )
+        self.xlim_slider_1d = LabeledSlider(
+            "X-axis Limit (Å⁻¹)", min_value=0.001, max_value=1.1, step=0.001, value_format="{:.3f}"
+        )
+        self.ylim_slider_1d = LabeledSlider(
+            "y-axis Limit (Å⁻¹)", min_value=0.001, max_value=1.1, step=0.001, value_format="{:.3f}"
+        )
 
         display_1d.addWidget(self.xlim_slider_1d)
         display_1d.addStretch()
         display_1d.addWidget(self.ylim_slider_1d)
         display_1d.addStretch()
-        display_1d.addLayout(self._build_axis_control(
-            "plot_1d",
-            x_min_range=(-0.1, 1), x_min_value=0,
-            x_max_range=(0.001, 1.1), x_max_value=0.5,
-            y_min_range=(-1.1, 1), y_min_value=-1,
-            y_max_range=(0.001, 1.1), y_max_value=1
-        ))
+        display_1d.addLayout(
+            self._build_axis_control(
+                "plot_1d",
+                x_min_range=(-0.1, 1),
+                x_min_value=0,
+                x_max_range=(0.001, 1.1),
+                x_max_value=0.5,
+                y_min_range=(-1.1, 1),
+                y_min_value=-1,
+                y_max_range=(0.001, 1.1),
+                y_max_value=1,
+            )
+        )
 
         self.show_temp = QCheckBox("Temporal Envelope    ")
         self.show_spatial = QCheckBox("Spatial Envelope")
@@ -327,19 +448,31 @@ class CTFSimGUI(QMainWindow):
 
         self.info_button_1d = self._create_info_button()
         self.toggle_button_1d = self._create_toggle_button()
-        display_1d.addLayout(self._create_tab_buttons(
-            self.info_button_1d,
-            self.toggle_button_1d
-        ))
+        display_1d.addLayout(self._create_tab_buttons(self.info_button_1d, self.toggle_button_1d))
 
         display_control_1d = QGroupBox()
         display_control_1d.setLayout(display_1d)
         display_control_1d.setStyleSheet(RIGHT_PANEL_QGROUPBOX_STYLE)
 
-        layout_1d.addWidget(display_control_1d)
+        # # setup scrollable control panel
+        # scroll_area = QScrollArea()
+        # scroll_area.setWidgetResizable(True)
+        # scroll_area.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
+        # scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        # scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        # scroll_area.setStyleSheet(SCROLL_AREA_STYLE)
+
+        # scroll_content = QWidget()
+        # scroll_layout = QHBoxLayout(scroll_content)
+        # scroll_layout.setContentsMargins(0, 0, 0, 0)
+        # scroll_layout.addWidget(display_control_1d)
+        # scroll_area.setWidget(scroll_content)
+
+        # layout_1d.addWidget(display_control_1d)
+        layout_1d.addWidget(self._setup_horizontal_scrollable_area(display_control_1d))
 
         return widget_1d
-    
+
     def _build_2d_ctf_tab(self):
         """
         Build the 2D-CTF tab.
@@ -348,7 +481,9 @@ class CTFSimGUI(QMainWindow):
             QWidget: Widget containing the canvas and controls.
         """
         self.canvas_2d = MplCanvas(self, width=5, height=4)
-        self.canvas_2d.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Allow canvas to expand fully
+        self.canvas_2d.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
+        )  # Allow canvas to expand fully
 
         widget_2d = QWidget()
         layout_2d = QVBoxLayout(widget_2d)
@@ -378,36 +513,44 @@ class CTFSimGUI(QMainWindow):
 
         display_2d.addLayout(scale_2d)
         display_2d.addStretch()
-        display_2d.addLayout(self._build_axis_control(
-            "plot_2d",
-            x_min_range=(-0.5, 0.5), x_min_value=-0.5,
-            x_max_range=(-0.5, 0.5), x_max_value=0.5,
-            y_min_range=(-0.5, 0.5), y_min_value=-1,
-            y_max_range=(-0.5, 0.5), y_max_value=1
-        ))
+        display_2d.addLayout(
+            self._build_axis_control(
+                "plot_2d",
+                x_min_range=(-0.5, 0.5),
+                x_min_value=-0.5,
+                x_max_range=(-0.5, 0.5),
+                x_max_value=0.5,
+                y_min_range=(-0.5, 0.5),
+                y_min_value=-1,
+                y_max_range=(-0.5, 0.5),
+                y_max_value=1,
+            )
+        )
         display_2d.addStretch()
 
-        self.defocus_diff_slider_2d = LabeledSlider("Defocus Ast. (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}")
-        self.defocus_az_slider_2d = LabeledSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}")
-        
+        self.defocus_diff_slider_2d = LabeledSlider(
+            "Defocus Ast. (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}"
+        )
+        self.defocus_az_slider_2d = LabeledSlider(
+            "Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}"
+        )
+
         display_2d.addWidget(self.defocus_diff_slider_2d)
         display_2d.addStretch()
         display_2d.addWidget(self.defocus_az_slider_2d)
         display_2d.addStretch()
-        
+
         self.info_button_2d = self._create_info_button()
         self.toggle_button_2d = self._create_toggle_button()
-        display_2d.addLayout(self._create_tab_buttons(
-            self.info_button_2d,
-            self.toggle_button_2d
-        ))
+        display_2d.addLayout(self._create_tab_buttons(self.info_button_2d, self.toggle_button_2d))
 
         display_control_2d = QGroupBox()
         display_control_2d.setLayout(display_2d)
         display_control_2d.setStyleSheet(RIGHT_PANEL_QGROUPBOX_STYLE)
-        
-        layout_2d.addWidget(display_control_2d)
-        
+
+        # layout_2d.addWidget(display_control_2d)
+        layout_2d.addWidget(self._setup_horizontal_scrollable_area(display_control_2d))
+
         return widget_2d
 
     def _build_ice_ctf_tab(self):
@@ -423,13 +566,25 @@ class CTFSimGUI(QMainWindow):
             2: {"rowspan": slice(1, 2), "colspan": slice(0, 1)},  # Bottom-left
             3: {"rowspan": slice(1, 2), "colspan": slice(1, 2)},  # Bottom-right
         }
-        self.canvas_ice = MplCanvas(self, subplot_grid=(2, 2), subplot_args=subplot_args, width=5, height=4)
-        self.canvas_ice.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Allow canvas to expand fully
+        self.canvas_ice = MplCanvas(
+            self, subplot_grid=(2, 2), subplot_args=subplot_args, width=5, height=4
+        )
+        self.canvas_ice.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
+        )  # Allow canvas to expand fully
 
-        self.ice_thickness_slider = LabeledSlider("Ice Thickness (nm)", min_value=1, max_value=1000, step=1, value_format="{:.0f}" )
-        self.xlim_slider_ice = LabeledSlider("X-axis Limit (Å⁻¹)", min_value=0.1, max_value=1.1, step=0.01, value_format="{:.2f}" )
-        self.defocus_diff_slider_ice = LabeledSlider("Defocus Ast. (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}")
-        self.defocus_az_slider_ice = LabeledSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}") 
+        self.ice_thickness_slider = LabeledSlider(
+            "Ice Thickness (nm)", min_value=1, max_value=1000, step=1, value_format="{:.0f}"
+        )
+        self.xlim_slider_ice = LabeledSlider(
+            "X-axis Limit (Å⁻¹)", min_value=0.1, max_value=1.1, step=0.01, value_format="{:.2f}"
+        )
+        self.defocus_diff_slider_ice = LabeledSlider(
+            "Defocus Ast. (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}"
+        )
+        self.defocus_az_slider_ice = LabeledSlider(
+            "Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}"
+        )
 
         widget_ice = QWidget()
         layout_ice = QVBoxLayout(widget_ice)
@@ -462,7 +617,7 @@ class CTFSimGUI(QMainWindow):
         display_ice.addWidget(self.xlim_slider_ice)
         display_ice.addStretch()
         display_ice.addWidget(self.ice_thickness_slider)
-        display_ice.addStretch() 
+        display_ice.addStretch()
         display_ice.addWidget(self.defocus_diff_slider_ice)
         display_ice.addStretch()
         display_ice.addWidget(self.defocus_az_slider_ice)
@@ -470,16 +625,16 @@ class CTFSimGUI(QMainWindow):
 
         self.info_button_ice = self._create_info_button()
         self.toggle_button_ice = self._create_toggle_button()
-        display_ice.addLayout(self._create_tab_buttons(
-            self.info_button_ice,
-            self.toggle_button_ice
-        ))
+        display_ice.addLayout(
+            self._create_tab_buttons(self.info_button_ice, self.toggle_button_ice)
+        )
 
         display_control_ice = QGroupBox()
         display_control_ice.setLayout(display_ice)
         display_control_ice.setStyleSheet(RIGHT_PANEL_QGROUPBOX_STYLE)
 
-        layout_ice.addWidget(display_control_ice)
+        # layout_ice.addWidget(display_control_ice)
+        layout_ice.addWidget(self._setup_horizontal_scrollable_area(display_control_ice))
 
         return widget_ice
 
@@ -496,14 +651,26 @@ class CTFSimGUI(QMainWindow):
             3: {"rowspan": slice(1, 2), "colspan": slice(0, 1)},  # Bottom-left
             4: {"rowspan": slice(0, 2), "colspan": slice(1, 2)},  # Right column
         }
-        self.canvas_tomo = MplCanvas(self, subplot_grid=(2, 2), subplot_args=subplot_args, width=5, height=4)
-        self.canvas_tomo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Allow canvas to expand fully
+        self.canvas_tomo = MplCanvas(
+            self, subplot_grid=(2, 2), subplot_args=subplot_args, width=5, height=4
+        )
+        self.canvas_tomo.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
+        )  # Allow canvas to expand fully
 
         # Create sliders for tilt angle and sample_thickness
-        self.sample_thickness_slider_tomo = LabeledSlider("Sample Thickness (nm)", min_value=50, max_value=1000, step=1, value_format="{:.0f}" )
-        self.tilt_slider_tomo = LabeledSlider("Tilt Angle (°)", min_value=-70, max_value=70, step=0.1, value_format="{:.1f}")
-        self.defocus_diff_slider_tomo = LabeledSlider("Defocus Ast. (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}")
-        self.defocus_az_slider_tomo = LabeledSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}") 
+        self.sample_thickness_slider_tomo = LabeledSlider(
+            "Sample Thickness (nm)", min_value=50, max_value=1000, step=1, value_format="{:.0f}"
+        )
+        self.tilt_slider_tomo = LabeledSlider(
+            "Tilt Angle (°)", min_value=-70, max_value=70, step=0.1, value_format="{:.1f}"
+        )
+        self.defocus_diff_slider_tomo = LabeledSlider(
+            "Defocus Ast. (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}"
+        )
+        self.defocus_az_slider_tomo = LabeledSlider(
+            "Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}"
+        )
 
         widget_tomo = QWidget()
         layout_tomo = QVBoxLayout(widget_tomo)
@@ -535,7 +702,7 @@ class CTFSimGUI(QMainWindow):
         display_tomo.addStretch()
 
         display_tomo.addWidget(self.sample_thickness_slider_tomo)
-        display_tomo.addStretch() 
+        display_tomo.addStretch()
         display_tomo.addWidget(self.tilt_slider_tomo)
         display_tomo.addStretch()
         display_tomo.addWidget(self.defocus_diff_slider_tomo)
@@ -545,16 +712,16 @@ class CTFSimGUI(QMainWindow):
 
         self.info_button_tomo = self._create_info_button()
         self.toggle_button_tomo = self._create_toggle_button()
-        display_tomo.addLayout(self._create_tab_buttons(
-            self.info_button_tomo,
-            self.toggle_button_tomo
-        ))
+        display_tomo.addLayout(
+            self._create_tab_buttons(self.info_button_tomo, self.toggle_button_tomo)
+        )
 
         display_control_tomo = QGroupBox()
         display_control_tomo.setLayout(display_tomo)
         display_control_tomo.setStyleSheet(RIGHT_PANEL_QGROUPBOX_STYLE)
 
-        layout_tomo.addWidget(display_control_tomo)
+        # layout_tomo.addWidget(display_control_tomo)
+        layout_tomo.addWidget(self._setup_horizontal_scrollable_area(display_control_tomo))
 
         return widget_tomo
 
@@ -572,14 +739,18 @@ class CTFSimGUI(QMainWindow):
             3: {"rowspan": slice(1, 2), "colspan": slice(0, 1)},  # Bottom-left
             4: {"rowspan": slice(1, 2), "colspan": slice(1, 2)},  # Bottom-right
         }
-        self.canvas_image = MplCanvas(self, subplot_grid=(2, 2), subplot_args=subplot_args, width=5, height=4)
-        self.canvas_image.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Allow canvas to expand fully
+        self.canvas_image = MplCanvas(
+            self, subplot_grid=(2, 2), subplot_args=subplot_args, width=5, height=4
+        )
+        self.canvas_image.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
+        )  # Allow canvas to expand fully
 
         # Create a button for uploading image
         self.upload_btn = QPushButton("Upload Image")
         self.upload_btn.setStyleSheet(BUTTON_STYLE)
-        
-        # Create spin boxes for size scaling 
+
+        # Create spin boxes for size scaling
         scale_image = QGridLayout()
         self.size_scale_image = QDoubleSpinBox()
         self.size_scale_image.setRange(100, 500)
@@ -622,8 +793,12 @@ class CTFSimGUI(QMainWindow):
         contrast_image.addWidget(self.contrast_scale_fft, 1, 1)
 
         # Create sliders
-        self.defocus_diff_slider_image = LabeledSlider("Defocus Ast. (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}")
-        self.defocus_az_slider_image = LabeledSlider("Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}") 
+        self.defocus_diff_slider_image = LabeledSlider(
+            "Defocus Ast. (µm)", min_value=-5, max_value=5, step=0.01, value_format="{:.4f}"
+        )
+        self.defocus_az_slider_image = LabeledSlider(
+            "Defocus Azimuth (°)", min_value=0, max_value=180, step=0.1, value_format="{:.1f}"
+        )
 
         widget_image = QWidget()
         layout_image = QVBoxLayout(widget_image)
@@ -641,13 +816,17 @@ class CTFSimGUI(QMainWindow):
         # Create a checkbox for contrast sync
         self.contrast_sync_checkbox = QCheckBox("Sync Greyscale")
         self.contrast_sync_checkbox.setChecked(False)
-        self.contrast_sync_checkbox.setStyleSheet("""
+        self.contrast_sync_checkbox.setStyleSheet(
+            """
             QCheckBox {
                 padding: 0px 0px;
             }
-        """)
-        self.contrast_sync_checkbox.setToolTip("Synchronize greyscale between original and convolved images")
-        
+        """
+        )
+        self.contrast_sync_checkbox.setToolTip(
+            "Synchronize greyscale between original and convolved images"
+        )
+
         # Create a button for contrast inversion
         self.invert_btn = QPushButton("Invert Image")
         self.invert_btn.setFixedHeight(26)
@@ -655,11 +834,11 @@ class CTFSimGUI(QMainWindow):
 
         contrast_group = QVBoxLayout()
         contrast_group.addWidget(self.contrast_sync_checkbox)
-        contrast_group.addWidget(self.invert_btn)        
-        
+        contrast_group.addWidget(self.invert_btn)
+
         display_image.addLayout(contrast_group)
         display_image.addStretch()
-                 
+
         display_image.addWidget(self.defocus_diff_slider_image)
         display_image.addStretch()
         display_image.addWidget(self.defocus_az_slider_image)
@@ -667,28 +846,34 @@ class CTFSimGUI(QMainWindow):
 
         self.info_button_image = self._create_info_button()
         self.toggle_button_image = self._create_toggle_button()
-        display_image.addLayout(self._create_tab_buttons(
-            self.info_button_image,
-            self.toggle_button_image
-        ))
+        display_image.addLayout(
+            self._create_tab_buttons(self.info_button_image, self.toggle_button_image)
+        )
 
         display_control_image = QGroupBox()
         display_control_image.setLayout(display_image)
         display_control_image.setStyleSheet(RIGHT_PANEL_QGROUPBOX_STYLE)
 
-        layout_image.addWidget(display_control_image)
+        # layout_image.addWidget(display_control_image)
+        layout_image.addWidget(self._setup_horizontal_scrollable_area(display_control_image))
 
         return widget_image
 
     def _build_axis_control(
-            self,
-            attr_prefix: str,
-            x_min_range: tuple[float, float], x_min_value: float,
-            x_max_range: tuple[float, float], x_max_value: float,
-            y_min_range: tuple[float, float], y_min_value: float,
-            y_max_range: tuple[float, float], y_max_value: float,
-            single_step: float = 0.01, decimals: int = 3, width: int = 70
-        ):
+        self,
+        attr_prefix: str,
+        x_min_range: tuple[float, float],
+        x_min_value: float,
+        x_max_range: tuple[float, float],
+        x_max_value: float,
+        y_min_range: tuple[float, float],
+        y_min_value: float,
+        y_max_range: tuple[float, float],
+        y_max_value: float,
+        single_step: float = 0.01,
+        decimals: int = 3,
+        width: int = 70,
+    ):
         """
         Generalized function to create an axis control layout with configurable QDoubleSpinBox widgets using QGridLayout.
 
@@ -739,7 +924,7 @@ class CTFSimGUI(QMainWindow):
             "x_max": QLabel("Max"),
             "y_axis": QLabel("Y-Axis:"),
             "y_min": QLabel("Min"),
-            "y_max": QLabel("Max")
+            "y_max": QLabel("Max"),
         }
 
         # Create Grid Layout
@@ -759,16 +944,16 @@ class CTFSimGUI(QMainWindow):
         grid_layout.addWidget(labels["y_max"], 1, 3)
         grid_layout.addWidget(y_max, 1, 4)
 
-        return grid_layout 
-    
+        return grid_layout
+
     def _create_info_button(self):
-        info_button = QPushButton("?")
+        info_button = QPushButton("i")
         info_button.setFixedSize(18, 18)
         info_button.setToolTip("Additional info")
         info_button.setStyleSheet(INFO_BUTTON_STYLE)
-        
+
         return info_button
-    
+
     def _create_toggle_button(self):
         # toggle_button = QPushButton("𝒱")
         toggle_button = QPushButton("V")
@@ -778,7 +963,7 @@ class CTFSimGUI(QMainWindow):
         toggle_button.setStyleSheet(INFO_BUTTON_STYLE)
 
         return toggle_button
-    
+
     def _create_tab_buttons(self, info_button, toggle_button):
         button_group = QVBoxLayout()
         button_group.setSpacing(4)
@@ -786,6 +971,41 @@ class CTFSimGUI(QMainWindow):
         button_group.addWidget(toggle_button)
 
         return button_group
+
+    def _setup_horizontal_scrollable_area(self, control):
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll_area.setStyleSheet(SCROLL_AREA_STYLE)
+
+        scroll_content = QWidget()
+        scroll_layout = QHBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.addWidget(control)
+        scroll_area.setWidget(scroll_content)
+
+        return scroll_area
+
+    def _setup_font_size_and_line_width(self) -> dict:
+        """
+        Returns a dictionary of font sizes based on screen height.
+        """
+        screen_height = QDesktopWidget().availableGeometry().height()
+
+        if screen_height < 800:
+            self.font_sizes = {"tiny": 6, "small": 8, "medium": 10, "large": 12}
+            self.is_small_screen = True
+            self.linewidth = 2
+        elif screen_height < 1080:
+            self.font_sizes = {"tiny": 8, "small": 10, "medium": 12, "large": 14}
+            self.is_small_screen = True
+            self.linewidth = 2
+        else:
+            self.font_sizes = {"tiny": 10, "small": 12, "medium": 14, "large": 16}
+            self.is_small_screen = False
+            self.linewidth = 3
 
 
 def test_gui() -> None:
