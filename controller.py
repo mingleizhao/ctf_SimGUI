@@ -294,18 +294,21 @@ class AppController(CTFSimGUI):
             origin="lower",
         )
         # setup color bars
-        cbar_ice_left = self.canvas_ice.fig.colorbar(
-            self.ice_image_ref,
-            ax=self.canvas_ice.axes[2],
-            orientation="vertical",
-        )
-        cbar_ice_right = self.canvas_ice.fig.colorbar(
-            self.ice_image,
-            ax=self.canvas_ice.axes[3],
-            orientation="vertical",
-        )
-        cbar_ice_left.ax.tick_params(labelsize=self.font_sizes["small"])
-        cbar_ice_right.ax.tick_params(labelsize=self.font_sizes["small"])
+        if not self.is_square_screen:
+            cbar_ice_left = self.canvas_ice.fig.colorbar(
+                self.ice_image_ref,
+                ax=self.canvas_ice.axes[2],
+                orientation="vertical",
+            )
+            cbar_ice_left.ax.tick_params(labelsize=self.font_sizes["small"])
+
+            cbar_ice_right = self.canvas_ice.fig.colorbar(
+                self.ice_image,
+                ax=self.canvas_ice.axes[3],
+                orientation="vertical",
+            )
+
+            cbar_ice_right.ax.tick_params(labelsize=self.font_sizes["small"])
 
     def _setup_tomo_plot(self):
         self._resample_data_points()
@@ -374,9 +377,10 @@ class AppController(CTFSimGUI):
         self.canvas_tomo.axes[4].set_xlabel(
             "Spatial Frequency X (Å⁻¹)", fontsize=self.font_sizes["small"]
         )
-        self.canvas_tomo.axes[4].set_ylabel(
-            "Spatial Frequency Y (Å⁻¹)", fontsize=self.font_sizes["small"]
-        )
+        if not self.is_square_screen:
+            self.canvas_tomo.axes[4].set_ylabel(
+                "Spatial Frequency Y (Å⁻¹)", fontsize=self.font_sizes["small"]
+            )
         self.canvas_tomo.axes[3].tick_params(axis="both", labelsize=self.font_sizes["small"])
         self.canvas_tomo.axes[4].tick_params(axis="both", labelsize=self.font_sizes["small"])
 
@@ -409,8 +413,8 @@ class AppController(CTFSimGUI):
         image_pos = self.canvas_tomo.axes[4].get_position()
         cbar_pos = cbar_tomo.ax.get_position()
 
-        cbar_tomo.ax.set_position([cbar_pos.x0, image_pos.y0 - 0.15, image_pos.width, 0.03])
-
+        cbar_tomo.ax.set_position([cbar_pos.x0, image_pos.y0 - 0.18, image_pos.width, 0.03])
+        cbar_tomo.ax.set_title("Gray Scale", fontsize=self.font_sizes["small"])
         cbar_tomo.ax.tick_params(labelsize=self.font_sizes["small"])
 
     def _setup_image_plot(self):
@@ -455,7 +459,7 @@ class AppController(CTFSimGUI):
             "Original Image", fontsize=self.font_sizes["small"], fontweight="bold"
         )
         self.canvas_image.axes[2].set_title(
-            "Fast Fourier Transform", fontsize=self.font_sizes["small"], fontweight="bold"
+            "Fourier Transform", fontsize=self.font_sizes["small"], fontweight="bold"
         )
         self.canvas_image.axes[3].set_title(
             "Convolved Image", fontsize=self.font_sizes["small"], fontweight="bold"
@@ -465,12 +469,12 @@ class AppController(CTFSimGUI):
         )
 
         for i in [1, 2, 3, 4]:
-            # Always set ylabel and tick label size
-            self.canvas_image.axes[i].set_ylabel(
-                "Pixel Y" if i in [1, 3] else "Spatial Frequency Y (Å⁻¹)",
-                fontsize=self.font_sizes["small"],
-            )
-            self.canvas_image.axes[i].tick_params(axis="both", labelsize=self.font_sizes["small"])
+            # Conditionally set ylabel
+            if not self.is_square_screen or i in [1, 3]:
+                self.canvas_image.axes[i].set_ylabel(
+                    "Pixel Y" if i in [1, 3] else "Spatial Frequency Y (Å⁻¹)",
+                    fontsize=self.font_sizes["small"],
+                )
 
             # Conditionally set xlabel
             if not self.is_small_screen or i in [3, 4]:
@@ -478,6 +482,8 @@ class AppController(CTFSimGUI):
                     "Pixel X" if i in [1, 3] else "Spatial Frequency X (Å⁻¹)",
                     fontsize=self.font_sizes["small"],
                 )
+
+            self.canvas_image.axes[i].tick_params(axis="both", labelsize=self.font_sizes["small"])
 
         # Colorbars
         cbar_image_1 = self.canvas_image.fig.colorbar(

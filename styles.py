@@ -81,8 +81,8 @@ QTabWidget::pane {
 }
 
 QTabBar::tab {
-    padding: 6px 15px;
-    min-width: 100px;
+    padding: 6px 10px;
+    min-width: 70px;
     font-size: 14px;
     font-weight: bold;
     border-top-left-radius: 6px;

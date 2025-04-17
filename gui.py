@@ -993,8 +993,15 @@ class CTFSimGUI(QMainWindow):
         Returns a dictionary of font sizes based on screen height.
         """
         screen_height = QDesktopWidget().availableGeometry().height()
+        screen_width = QDesktopWidget().availableGeometry().width()
+        aspect_ratio = screen_width / screen_height
+        self.is_square_screen = aspect_ratio <= 1.4 and screen_width < 1620
 
         if screen_height < 800:
+            self.font_sizes = {"tiny": 6, "small": 6, "medium": 6, "large": 8}
+            self.is_small_screen = True
+            self.linewidth = 1
+        elif screen_height < 900:
             self.font_sizes = {"tiny": 6, "small": 8, "medium": 10, "large": 12}
             self.is_small_screen = True
             self.linewidth = 2
