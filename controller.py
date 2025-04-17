@@ -237,7 +237,7 @@ class AppController(CTFSimGUI):
         )
         self.canvas_ice.axes[1].set_ylim(-1, 1)
         self.canvas_ice.axes[1].axhline(y=0, color="grey", linestyle="--", alpha=0.8)
-        if not self.is_small_screen:
+        if not (self.is_wide_screen and self.need_resize or self.is_tight_space):
             self.canvas_ice.axes[1].set_xlabel(
                 "Spatial Frequency (Å⁻¹)", fontsize=self.font_sizes["small"]
             )
@@ -294,7 +294,7 @@ class AppController(CTFSimGUI):
             origin="lower",
         )
         # setup color bars
-        if not self.is_square_screen:
+        if not (self.is_square_screen and self.need_resize or self.is_tight_space):
             cbar_ice_left = self.canvas_ice.fig.colorbar(
                 self.ice_image_ref,
                 ax=self.canvas_ice.axes[2],
@@ -325,7 +325,7 @@ class AppController(CTFSimGUI):
         self.canvas_tomo.axes[1].set_title(
             "Schematic Diagram", fontsize=self.font_sizes["small"], fontweight="bold"
         )
-        if not self.is_small_screen:
+        if not (self.is_wide_screen and self.need_resize or self.is_tight_space):
             self.canvas_tomo.axes[1].set_xlabel("Length (µm)", fontsize=self.font_sizes["small"])
         self.canvas_tomo.axes[1].set_ylabel("Length (µm)", fontsize=self.font_sizes["small"])
         self.canvas_tomo.axes[1].xaxis.set_major_formatter(
@@ -377,7 +377,7 @@ class AppController(CTFSimGUI):
         self.canvas_tomo.axes[4].set_xlabel(
             "Spatial Frequency X (Å⁻¹)", fontsize=self.font_sizes["small"]
         )
-        if not self.is_square_screen:
+        if not (self.is_square_screen and self.need_resize or self.is_tight_space):
             self.canvas_tomo.axes[4].set_ylabel(
                 "Spatial Frequency Y (Å⁻¹)", fontsize=self.font_sizes["small"]
             )
@@ -470,14 +470,17 @@ class AppController(CTFSimGUI):
 
         for i in [1, 2, 3, 4]:
             # Conditionally set ylabel
-            if not self.is_square_screen or i in [1, 3]:
+            if not (self.is_square_screen and self.need_resize or self.is_tight_space) or i in [
+                1,
+                3,
+            ]:
                 self.canvas_image.axes[i].set_ylabel(
                     "Pixel Y" if i in [1, 3] else "Spatial Frequency Y (Å⁻¹)",
                     fontsize=self.font_sizes["small"],
                 )
 
             # Conditionally set xlabel
-            if not self.is_small_screen or i in [3, 4]:
+            if not (self.is_wide_screen and self.need_resize or self.is_tight_space) or i in [3, 4]:
                 self.canvas_image.axes[i].set_xlabel(
                     "Pixel X" if i in [1, 3] else "Spatial Frequency X (Å⁻¹)",
                     fontsize=self.font_sizes["small"],
