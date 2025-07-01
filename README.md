@@ -1,5 +1,5 @@
 # CTF Simulation GUI
-This repository provides a **Contrast Transfer Function (CTF)** simulation tool for electron microscopy, similar to the [ctf_notebook](https://github.com/mingleizhao/ctf_notebook) project. It features a fast and responsive **PyQt-based GUI**, offering a streamlined and interactive alternative to the original notebook interface.
+This repository provides a **Contrast Transfer Function (CTF)** simulation tool for electron microscopy, originated from the simpler [ctf_notebook](https://github.com/mingleizhao/ctf_notebook) project. It features a fast and responsive **PyQt-based GUI**, offering a streamlined and interactive alternative and addtional functionalities to the original notebook interface.
 
 ## Features
 

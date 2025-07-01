@@ -1,10 +1,41 @@
+"""
+customized_widgets.py
+--------------
+
+This module provides two main components for the CTF Simulation GUI:
+
+LabeledSlider
+   A composite QWidget consisting of:
+        - a QLabel for a descriptive text
+        - a QLineEdit for precise numeric entry
+        - a QSlider for quick graphical adjustment
+   Supports both linear and optional logarithmic scaling, and emits a `valueChanged(float)` signal.
+
+MplCanvas
+    A convenience subclass of Matplotlib’s FigureCanvasQTAgg for embedding one or more Matplotlib
+      subplots in a PyQt5 application.
+
+    It supports:
+        - Specifying the figure size and DPI.
+        - Laying out subplots on a flexible grid via GridSpec.
+        - Customizing individual subplot spans (rowspan/colspan) and keyword args.
+"""
+
 import math
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QLineEdit, QApplication, QMainWindow, QPushButton
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QSlider,
+    QLineEdit,
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QDoubleValidator, QFontMetrics
-from styles import QSLIDER_STYLE, LABELED_SLIDER_STYLE
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
+from .ui_utils import compute_ui_scale
+from .styles import qslider_style, labeled_slider_style
 
 
 class LabeledSlider(QWidget):
@@ -33,7 +64,7 @@ class LabeledSlider(QWidget):
         log_scale: bool = False,
         orientation: Qt.Orientation = Qt.Horizontal,
         value_format: str = "{:.2f}",
-        parent: QWidget | None = None
+        parent: QWidget | None = None,
     ) -> None:
         """
         Initialize the labeled slider with an optional logarithmic mode.
@@ -56,6 +87,8 @@ class LabeledSlider(QWidget):
         self.value_format = value_format
         self.log_scale = log_scale
 
+        self._scale = min(compute_ui_scale(), 1.0)
+
         if log_scale:
             if min_value <= 0 or max_value <= 0:
                 raise ValueError("Log scale requires min_value and max_value > 0")
@@ -68,12 +101,13 @@ class LabeledSlider(QWidget):
 
         # Layout: Row 1 (Label + Input), Row 2 (Slider)
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(5, 5, 5, 5)
-        main_layout.setSpacing(5)
+        margin = int(5 * self._scale)
+        main_layout.setContentsMargins(margin, 0, margin, 0)
+        main_layout.setSpacing(margin)
 
         # Label + Input Row
         top_layout = QHBoxLayout()
-        top_layout.setSpacing(10)
+        top_layout.setSpacing(int(10 * self._scale))
 
         self.label = QLabel(label_text, self)
         top_layout.addWidget(self.label)
@@ -97,8 +131,8 @@ class LabeledSlider(QWidget):
         main_layout.addWidget(self.slider)
 
         # Apply Styles
-        self.setStyleSheet(LABELED_SLIDER_STYLE)
-        self.slider.setStyleSheet(QSLIDER_STYLE)
+        self.setStyleSheet(labeled_slider_style())
+        self.slider.setStyleSheet(qslider_style())
 
         self.set_value(min_value)
 
@@ -106,20 +140,24 @@ class LabeledSlider(QWidget):
         """Dynamically adjust the width of QLineEdit to fit content."""
         text = self.value_input.text()
         metrics = QFontMetrics(self.value_input.font())
-        width = metrics.boundingRect(text).width() # + 10  # Add padding
-        self.value_input.setMinimumWidth(width)
-        self.value_input.setMaximumWidth(width + 10)  # Allow small extra space
+        width = metrics.boundingRect(text).width()  # + 10  # Add padding
+        self.value_input.setMinimumWidth(width + int(5 * self._scale))
+        self.value_input.setMaximumWidth(width + int(10 * self._scale))  # Allow small extra space
 
     def _slider_to_value(self, slider_value: int) -> float:
         """Convert slider position to actual value based on scale."""
         if self.log_scale:
-            return 10 ** (self.min_exp + (slider_value / self.num_steps) * (self.max_exp - self.min_exp))
+            return 10 ** (
+                self.min_exp + (slider_value / self.num_steps) * (self.max_exp - self.min_exp)
+            )
         return self.min_value + (slider_value / self.num_steps) * (self.max_value - self.min_value)
 
     def _value_to_slider(self, value: float) -> int:
         """Convert actual value to slider position based on scale."""
         if self.log_scale:
-            return int((math.log10(value) - self.min_exp) / (self.max_exp - self.min_exp) * self.num_steps)
+            return int(
+                (math.log10(value) - self.min_exp) / (self.max_exp - self.min_exp) * self.num_steps
+            )
         return int((value - self.min_value) / (self.max_value - self.min_value) * self.num_steps)
 
     def _on_slider_changed(self, value: int) -> None:
@@ -146,7 +184,9 @@ class LabeledSlider(QWidget):
             self.value_input.setText(self.value_format.format(value))  # Ensure proper format
             self.valueChanged.emit(value)
         except ValueError:
-            self.value_input.setText(self.value_format.format(self.get_value()))  # Reset on invalid input
+            self.value_input.setText(
+                self.value_format.format(self.get_value())
+            )  # Reset on invalid input
 
     def set_value(self, value: float) -> None:
         """
@@ -184,70 +224,61 @@ class LabeledSlider(QWidget):
             return self.min_value
 
 
-class TestWindow(QMainWindow):
+class MplCanvas(FigureCanvasQTAgg):
     """
-    A test PyQt window containing various slider widgets for demonstration.
+    A custom Matplotlib canvas widget for embedding plots in a PyQt application.
     """
-    def __init__(self) -> None:
+
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        width: float = 8.0,
+        height: float = 6.0,
+        dpi: int = 100,
+        subplot_grid: tuple[int, int] = (1, 1),
+        subplot_args: dict | None = None,
+    ) -> None:
         """
-        Initialize the test window with selection, float, and float-log sliders plus set/get value buttons.
+        Initialize the Matplotlib canvas with support for custom subplot layouts.
+
+        Args:
+            parent (QWidget | None, optional): Optional parent widget for this canvas.
+                Defaults to None.
+            width (float, optional): Width of the plot in inches. Defaults to 8.0.
+            height (float, optional): Height of the plot in inches. Defaults to 6.0.
+            dpi (int, optional): Resolution of the plot in dots per inch. Defaults to 100.
+            subplot_grid (tuple[int, int], optional): Grid layout for subplots (rows, cols).
+                Defaults to (2, 2).
+            subplot_args (dict | None, optional): Arguments to customize specific subplots.
+                Example: {1: {"colspan": 2}} for subplot 1 spanning 2 columns.
         """
-        super().__init__()
-        self.setWindowTitle("Slider Test Implementation")
-        self.setGeometry(100, 100, 500, 400)
+        self.fig = Figure(figsize=(width, height), dpi=dpi)
+        nrows, ncols = subplot_grid
 
-        central_widget: QWidget = QWidget()
-        layout: QVBoxLayout = QVBoxLayout(central_widget)
-        self.setCentralWidget(central_widget)
+        # Initialize the layout for subplots
+        self.axes = {}
+        if subplot_args is None:
+            subplot_args = {}
 
-        # Test SelectionSlider
-        self.selection_slider: LabeledSlider = LabeledSlider("Brightness", min_value=10.0, max_value=500.0, step=70, value_format="{:.0f}")
-        layout.addWidget(self.selection_slider)
+        # Use GridSpec for advanced layout
+        grid_spec = self.fig.add_gridspec(nrows=nrows, ncols=ncols)
 
-        # Button to set and get SelectionSlider value
-        selection_set_button: QPushButton = QPushButton("Set Brightness to 100")
-        selection_set_button.clicked.connect(lambda: self.selection_slider.set_value(100))
-        layout.addWidget(selection_set_button)
+        # Define subplots
+        if not subplot_args:
+            # Create default subplots when no specific args are provided
+            for idx in range(1, nrows * ncols + 1):
+                row, col = divmod(idx - 1, ncols)  # 1-based index
+                self.axes[idx] = self.fig.add_subplot(grid_spec[row, col])
+        else:
+            # Apply custom subplot arguments
+            for idx, args in subplot_args.items():
+                if "rowspan" in args or "colspan" in args:
+                    self.axes[idx] = self.fig.add_subplot(
+                        grid_spec[args.pop("rowspan"), args.pop("colspan")], **args
+                    )
+                else:
+                    row, col = divmod(idx - 1, ncols)  # 1-based index
+                    self.axes[idx] = self.fig.add_subplot(grid_spec[row, col], **args)
 
-        selection_get_button: QPushButton = QPushButton("Get Brightness Value")
-        selection_get_button.clicked.connect(
-            lambda: print(f"Current Brightness: {self.selection_slider.get_value()}")
-        )
-        layout.addWidget(selection_get_button)
-
-        # Test FloatSlider
-        self.float_slider: LabeledSlider = LabeledSlider("Temperature", min_value=-20.0, max_value=100.0, step=0.5, value_format="{:.1f}")
-        layout.addWidget(self.float_slider)
-
-        # Button to set and get FloatSlider value
-        float_set_button: QPushButton = QPushButton("Set Temperature to 25.5")
-        float_set_button.clicked.connect(lambda: self.float_slider.set_value(25.5))
-        layout.addWidget(float_set_button)
-
-        float_get_button: QPushButton = QPushButton("Get Temperature Value")
-        float_get_button.clicked.connect(
-            lambda: print(f"Current Temperature: {self.float_slider.get_value():.1f}")
-        )
-        layout.addWidget(float_get_button)
-
-        # Test FloatLogSlider
-        self.log_slider: LabeledSlider = LabeledSlider("Log Scale", min_value=10**-2, max_value=10**2, step=0.1, value_format="{:.3e}", log_scale=True)
-        layout.addWidget(self.log_slider)
-
-        # Button to set and get FloatLogSlider value
-        log_set_button: QPushButton = QPushButton("Set Logarithmic Value to 100")
-        log_set_button.clicked.connect(lambda: self.log_slider.set_value(100))
-        layout.addWidget(log_set_button)
-
-        log_get_button: QPushButton = QPushButton("Get Logarithmic Value")
-        log_get_button.clicked.connect(
-            lambda: print(f"Current Logarithmic Value: {self.log_slider.get_value():.3e}")
-        )
-        layout.addWidget(log_get_button)
-
-
-if __name__ == "__main__":
-    app = QApplication([])
-    window = TestWindow()
-    window.show()
-    app.exec_()
+        super().__init__(self.fig)
+        self.setParent(parent)

@@ -1,0 +1,48 @@
+<div style="font-weight:normal; font-family: Arial, sans-serif; font-size:14px;">
+
+    <!--–––––––––––––––––––––––––––––––––––––-->
+    <!-- NOTES section: -->
+    <!--–––––––––––––––––––––––––––––––––––––-->
+    <div>
+        <b>Notes:</b><br><br>
+        1) The controls on the left panel affect CTF calculations across all tabs.<br>
+        2) Tab‐specific controls are located at the bottom of each tab.<br>
+        3) Tabs “2D”, “Thickness”, “Image” share the same 2-D CTF model.<br>
+        4) Positive defocus values indicate underfocus.<br>
+        5) The detector envelope models only the attenuation of the CTF at higher spatial frequencies due to the
+        detector’s DQE.
+        The actual impact of different detectors on image signal-to-noise ratio, based on varying DQE characteristics,
+        is not simulated.
+        DQEs are modeled as polynomial functions of spatial frequency.<br>
+    </div>
+
+    <!--–––––––––––––––––––––––––––––––––––––-->
+    <!-- EQUATIONS USED section: -->
+    <!--–––––––––––––––––––––––––––––––––––––-->
+    <div>
+        <b>Equations used:</b><br>
+        <pre style="font-family: Menlo, Monaco, Consolas, 'Courier New', monospace; margin:0;">
+1. λ = h / √[ 2 · mₑ · eV · (1 + eV / (2 · mₑ · c²)) ]  
+2. γ(f) = -(π / 2) · C<sub>s</sub> · λ³ · f⁴ + π · d<sub>f</sub> · λ · f² + p  
+3. f<sub>s</sub> = C<sub>c</sub> · √((ΔV / V)² + (2ΔI / I)² + (ΔE / eV)²)  
+4. E<sub>T</sub>(f) = exp(–(π² · λ² · f<sub>s</sub>² · f⁴) / 2)  
+5. E<sub>S</sub>(f) = exp(–((π · eₐ / λ)² · (C<sub>s</sub> · λ³ · f³ + d<sub>f</sub> · λ · f)²))  
+6. E<sub>D</sub>(f) = DQE(f / Nyquist) / max(DQE)  
+7. E<sub>total</sub>(f) = E<sub>T</sub>(f) · E<sub>S</sub>(f) · E<sub>D</sub>(f)  
+8. CTF(f) = –sin(γ(f) + arcsin(A<sub>c</sub>)) · E<sub>total</sub>(f) 
+    </pre>
+    </div>
+
+    <!--–––––––––––––––––––––––––––––––––––––-->
+    <!-- TIPS section: -->
+    <!--–––––––––––––––––––––––––––––––––––––-->
+    <div>
+        <b>Tips:</b><br><br>
+        1) Scroll on the spin boxes to adjust values quickly.<br>
+        2) You can also type values directly into the input fields.<br>
+        3) Click the “<i>V</i>” button to display or hide values on the plot.<br>
+        4) Save the entire tab as a PNG image using the “Save Plot” button.<br>
+        5) Export all simulation data to a CSV file for further analysis.<br>
+    </div>
+
+</div>
