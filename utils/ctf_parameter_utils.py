@@ -27,7 +27,8 @@ def apply_ctf_parameter(key: str, value: float, models: list) -> bool:
     Apply the given CTF parameter (key,value) to all models in the list.
     Returns True if pixel_size was updated (so that controller can resample freq grid).
 
-    Note: 1D’s defocus is stored as defocus_um rather than df, so we handle that mapping here.
+    Only the models whose indices are listed for `key` in PARAMETER_MAP are
+    updated (e.g. astigmatism parameters skip the 1D-only models).
     """
     if key not in PARAMETER_MAP:
         return False

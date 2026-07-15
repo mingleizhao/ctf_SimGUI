@@ -36,12 +36,13 @@ def main() -> NoReturn:
 
     args = parser.parse_args()
 
+    # These attributes must be set before the QApplication is instantiated.
+    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
+    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
+
     app: QApplication = QApplication([])
 
     # app.setStyle("Fusion")
-
-    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
-    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
 
     gui: AppController = AppController(
         line_points=args.line_points, image_size=args.image_size, default_image=args.default_image

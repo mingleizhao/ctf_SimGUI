@@ -247,7 +247,7 @@ class CTFEnvelope:
     def spatial_1d(self, freq: np.ndarray) -> np.ndarray:
         """
         1D spatial envelope: exp[−((π·e_a/λ)^2 · (C_s λ^3 f^3 + d_f λ f)^2)].
-        d_f = (defocus + defocus_diff) * 1e4  (µm→Å).
+        d_f = defocus * 1e4  (µm→Å); 1D has no astigmatism, so defocus_diff is unused.
         """
         if not self.include_spatial:
             return np.ones_like(freq)
@@ -265,7 +265,7 @@ class CTFEnvelope:
         """
         2D spatial envelope (astigmatism included):
           f = sqrt(fx² + fy²), φ = arctan2(fy, fx), φ_a = defocus_az (rad),
-          d_u = (defocus + defocus_diff) * 1e4, d_v = (defocus − defocus_diff) * 1e4,
+          d_u = (defocus + defocus_diff / 2) * 1e4, d_v = (defocus − defocus_diff / 2) * 1e4,
           d_f_eff = 0.5 [d_u + d_v + (d_u−d_v) cos 2(φ−φ_a)],
           then exp[−((π·e_a/λ)^2 · (C_s λ^3 f^3 + d_f_eff λ f)^2)].
         """

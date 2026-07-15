@@ -1,4 +1,3 @@
-import os
 import numpy as np
 from matplotlib.colors import Normalize
 from PyQt5.QtWidgets import QMessageBox
@@ -8,6 +7,7 @@ from models.ctf_2d import CTF2D
 from models.detector import ALL_DETECTORS
 from views.main_window import MainWindow
 from utils.file_io import prompt_and_save_figure, prompt_and_save_csv
+from utils.resources import resource_path
 from utils.ctf_parameter_utils import apply_ctf_parameter, get_ctf_wrap_func
 from controllers.plot_setup import (
     setup_1d_plot,
@@ -271,6 +271,13 @@ class AppController:
         Restore default GUI values and re-compute the CTF plots.
         """
         self.setup_default_gui_values()
+
+        # Restore the image-tab colormap if the user had inverted it.
+        if self.image_contrast_inverted:
+            self.image_contrast_inverted = False
+            self.image_original.set_cmap("Greys")
+            self.image_convolved.set_cmap("Greys")
+
         update_plot_range(self)
         update_plot(self, self.ui.plot_tabs.currentIndex())
 
@@ -347,20 +354,20 @@ class AppController:
         """Show additional HTML info text for the current tab by loading from info/*.html."""
         tab_index = self.ui.plot_tabs.currentIndex()
         html_files = {
-            0: "../info/1d_info.html",
-            1: "../info/2d_info.html",
-            2: "../info/ice_info.html",
-            3: "../info/tomo_info.html",
-            4: "../info/image_info.html",
+            0: "info/1d_info.html",
+            1: "info/2d_info.html",
+            2: "info/ice_info.html",
+            3: "info/tomo_info.html",
+            4: "info/image_info.html",
         }
 
         filepath = html_files.get(tab_index)
         if filepath is None:
             return
 
-        # Construct absolute path relative to the script’s location
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        full_path = os.path.join(base_dir, filepath)
+        # Resolve to an absolute path that works both from source and when
+        # packaged with PyInstaller (data files live under sys._MEIPASS).
+        full_path = resource_path(filepath)
 
         try:
             with open(full_path, "r", encoding="utf-8") as fh:
