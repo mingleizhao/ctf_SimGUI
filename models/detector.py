@@ -123,5 +123,11 @@ def get_detector_by_name(name: str) -> Optional[Detector]:
 def get_detector_by_index(idx: int) -> Detector:
     """
     Return ALL_DETECTORS[idx]. Raises IndexError if out of range.
+
+    Negative indices are rejected explicitly (rather than wrapping around, as
+    plain list indexing would) so an invalid combo-box index can't silently
+    select the wrong detector.
     """
+    if idx < 0 or idx >= len(ALL_DETECTORS):
+        raise IndexError(f"Detector index {idx} out of range (0..{len(ALL_DETECTORS) - 1}).")
     return ALL_DETECTORS[idx]

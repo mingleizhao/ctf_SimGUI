@@ -123,7 +123,7 @@ class CTFBase:
           - freq: spatial frequency array (Å⁻¹)
           - λ = electron wavelength (Å) from microscope
           - C_s = spherical aberration in mm → converted to Å (Cs * 1e7)
-          - d_f = defocus + defocus_diff (both in µm → convert to Å by * 1e4)
+          - d_f = defocus (µm → convert to Å by * 1e4); 1D has no astigmatism
           - φ₀ = phase_shift_deg (converted to radians)
         Returns: array of γ₁(f) (radians), vectorized over freq.
         """
@@ -132,7 +132,7 @@ class CTFBase:
         f = freq  # array or scalar
 
         # Convert defocus (µm) to Å: 1 µm = 10^4 Å
-        d_f = (self.defocus + self.defocus_diff) * 1e4  # in Å
+        d_f = self.defocus * 1e4  # in Å
 
         # Compute base phase
         # γ₁(f) = −(π/2)*Cs*λ³*f⁴ + π*d_f*λ*f² + φ₀
@@ -152,8 +152,8 @@ class CTFBase:
           1. f = sqrt(fx² + fy²), φ = arctan2(fy, fx)
           2. λ = microscope.wavelength (Å)
           3. Cs = microscope.cs * 1e7 (Cs in Å)
-          4. d_u = (defocus + defocus_diff) * 1e4  (µm→Å)
-             d_v = (defocus − defocus_diff) * 1e4  (µm→Å)
+          4. d_u = (defocus + defocus_diff / 2) * 1e4  (µm→Å)
+             d_v = (defocus − defocus_diff / 2) * 1e4  (µm→Å)
           5. φ_a = defocus_az in radians
           6. d_f_eff = 0.5 [ d_u + d_v + (d_u − d_v)·cos(2(φ − φ_a)) ]
           7. γ₂ = −(π/2)*Cs*λ³*f⁴ + π*d_f_eff*λ*f² + φ₀

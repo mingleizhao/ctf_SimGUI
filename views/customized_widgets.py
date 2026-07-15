@@ -200,7 +200,11 @@ class LabeledSlider(QWidget):
         """
         if self.min_value <= value <= self.max_value:
             slider_value = self._value_to_slider(value)
+            # Block the slider's signal so it doesn't emit a (truncated) value via
+            # _on_slider_changed; we emit the exact value once below instead.
+            self.slider.blockSignals(True)
             self.slider.setValue(slider_value)
+            self.slider.blockSignals(False)
             self.value_input.setText(self.value_format.format(value))
             self._adjust_input_width()  # Ensure proper width after setting value
             self.valueChanged.emit(value)

@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from PIL import Image
+from utils.resources import resource_path
 
 
 def load_and_prepare_image(path: str, target_size: int) -> np.ndarray:
@@ -17,8 +18,14 @@ def load_and_prepare_image(path: str, target_size: int) -> np.ndarray:
             np.ndarray: A (self.image_size x self.image_size) normalized grayscale image.
     """
     if not os.path.exists(path):
-        print(f"[Warning] Image not found at '{path}'. Generating random image.")
-        return np.random.rand(target_size, target_size).astype(np.float32)
+        # Fall back to the bundled/project-relative copy (handles PyInstaller
+        # builds and launching from a different working directory).
+        bundled = resource_path(path)
+        if os.path.exists(bundled):
+            path = bundled
+        else:
+            print(f"[Warning] Image not found at '{path}'. Generating random image.")
+            return np.random.rand(target_size, target_size).astype(np.float32)
 
     try:
         img = Image.open(path).convert("L")

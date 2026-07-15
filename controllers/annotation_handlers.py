@@ -2,12 +2,23 @@ import math
 import numpy as np
 
 
+def _resolution(*coords) -> float:
+    """Resolution (Å) = 1/|f|, guarding against the zero-frequency origin."""
+    freq = math.hypot(*coords)
+    return 1.0 / freq if freq > 0 else float("inf")
+
+
+def _clamp_index(value: float, size: int) -> int:
+    """Clamp a float pixel coordinate to a valid array index in [0, size - 1]."""
+    return max(0, min(int(value), size - 1))
+
+
 def annotate_1d(ctrl, event):
     """Called when hovering over the 1D axes (canvas_1d.axes[1])."""
     x, y = event.xdata, event.ydata
     if x is None or y is None:
         return
-    res = 1.0 / x
+    res = _resolution(x)
     value = ctrl.wrap_func(ctrl.ctf_1d.ctf(np.array([x])))[0]
     text = f"x: {x:.3f} Å⁻¹\ny: {y:.3f}\nres: {res:.2f} Å\nctf: {value:.4f}"
     ctrl.annotation_1d.xy = (x, y)
@@ -21,7 +32,7 @@ def annotate_2d(ctrl, event):
     x, y = event.xdata, event.ydata
     if x is None or y is None:
         return
-    res = 1.0 / math.sqrt(x**2 + y**2)
+    res = _resolution(x, y)
     value = ctrl.wrap_func(ctrl.ctf_2d.ctf(np.array([x]), np.array([y])))[0]
     text = f"x: {x:.3f} Å⁻¹\ny: {y:.3f} Å⁻¹\nres: {res:.2f} Å\nctf: {value:.4f}"
     ctrl.annotation_2d.xy = (x, y)
@@ -35,7 +46,7 @@ def annotate_ice_1d(ctrl, event):
     x, y = event.xdata, event.ydata
     if x is None or y is None:
         return
-    res = 1.0 / x
+    res = _resolution(x)
     no_ice = ctrl.wrap_func(ctrl.ctf_1d.ctf(np.array([x])))[0]
     with_ice = ctrl.wrap_func(ctrl.ctf_1d_ice.ctf(np.array([x])))[0]
     text = (
@@ -52,7 +63,7 @@ def annotate_ice_2d_noice(ctrl, event):
     x, y = event.xdata, event.ydata
     if x is None or y is None:
         return
-    res = 1.0 / math.sqrt(x**2 + y**2)
+    res = _resolution(x, y)
     value = ctrl.wrap_func(ctrl.ctf_2d.ctf(np.array([x]), np.array([y])))[0]
     text = f"x: {x:.3f} Å⁻¹\ny: {y:.3f} Å⁻¹\nres: {res:.2f} Å\nctf: {value:.4f}"
     ctrl.annotation_ice_ref.xy = (x, y)
@@ -66,7 +77,7 @@ def annotate_ice_2d_withice(ctrl, event):
     x, y = event.xdata, event.ydata
     if x is None or y is None:
         return
-    res = 1.0 / math.sqrt(x**2 + y**2)
+    res = _resolution(x, y)
     val = ctrl.wrap_func(ctrl.ctf_2d_ice.ctf(np.array([x]), np.array([y])))[0]
     text = f"x: {x:.3f} Å⁻¹\n" f"y: {y:.3f} Å⁻¹\n" f"res: {res:.2f} Å\n" f"ctf: {val:.4f}"
     ctrl.annotation_ice_ctf.xy = (x, y)
@@ -97,7 +108,7 @@ def annotate_tomo_ref_ctf(ctrl, event):
     x, y = event.xdata, event.ydata
     if x is None or y is None:
         return
-    res = 1.0 / math.sqrt(x**2 + y**2)
+    res = _resolution(x, y)
     val = ctrl.wrap_func(ctrl.ctf_tomo_ref.ctf(np.array([x]), np.array([y])))[0]
     text = (
         f"tilt angle: 0°\n"
@@ -117,7 +128,7 @@ def annotate_tomo_tilt_ctf(ctrl, event):
     x, y = event.xdata, event.ydata
     if x is None or y is None:
         return
-    res = 1.0 / math.sqrt(x**2 + y**2)
+    res = _resolution(x, y)
     val = ctrl.wrap_func(ctrl.ctf_tomo_tilt.ctf(np.array([x]), np.array([y])))[0]
     text = (
         f"tilt angle: {ctrl.ui.tilt_slider_tomo.get_value():.1f}°\n"
@@ -137,9 +148,9 @@ def annotate_image_original(ctrl, event):
     x, y = event.xdata, event.ydata
     if x is None or y is None:
         return
-    val = ctrl.image_data[int(y), int(x)]
+    val = ctrl.image_data[_clamp_index(y, ctrl.image_size), _clamp_index(x, ctrl.image_size)]
     ctrl.annotation_image_original.xy = (x, y)
-    ctrl.annotation_image_original.set_text(f"{val:.2f}")
+    ctrl.annotation_image_original.set_text(f"Int: {val:.2f}")
     ctrl.annotation_image_original.set_visible(True)
     ctrl.ui.canvas_image.draw_idle()
 
@@ -151,8 +162,8 @@ def annotate_image_fft(ctrl, event):
         return
     x_freq = (2 * x / ctrl.image_size - 1) * ctrl.nyquist
     y_freq = (2 * y / ctrl.image_size - 1) * ctrl.nyquist
-    res = 1.0 / math.sqrt(x_freq**2 + y_freq**2)
-    val = ctrl.scaled_fft[int(y), int(x)]
+    res = _resolution(x_freq, y_freq)
+    val = ctrl.scaled_fft[_clamp_index(y, ctrl.image_size), _clamp_index(x, ctrl.image_size)]
     text = f"res: {res:.2f} Å\namp: {val:.2f}"
     ctrl.annotation_image_fft.xy = (x, y)
     ctrl.annotation_image_fft.set_text(text)
@@ -165,9 +176,9 @@ def annotate_image_convolved(ctrl, event):
     x, y = event.xdata, event.ydata
     if x is None or y is None:
         return
-    val = ctrl.scaled_convolved[int(y), int(x)]
+    val = ctrl.scaled_convolved[_clamp_index(y, ctrl.image_size), _clamp_index(x, ctrl.image_size)]
     ctrl.annotation_image_convolved.xy = (x, y)
-    ctrl.annotation_image_convolved.set_text(f"{val:.2f}")
+    ctrl.annotation_image_convolved.set_text(f"Int: {val:.2f}")
     ctrl.annotation_image_convolved.set_visible(True)
     ctrl.ui.canvas_image.draw_idle()
 
@@ -177,7 +188,7 @@ def annotate_image_ctf(ctrl, event):
     x, y = event.xdata, event.ydata
     if x is None or y is None:
         return
-    res = 1.0 / math.sqrt(x**2 + y**2)
+    res = _resolution(x, y)
     val = ctrl.wrap_func(ctrl.ctf_2d.ctf(np.array([x]), np.array([y])))[0]
     text = f"res: {res:.2f} Å\nctf: {val:.4f}"
     ctrl.annotation_image_ctf_convolve.xy = (x, y)

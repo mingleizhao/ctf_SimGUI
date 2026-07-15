@@ -191,7 +191,10 @@ def update_ticks_for_fft(ctrl):
     yticks = ax_ctf.get_yticks()
     yticklabels = [label.get_text() for label in ax_ctf.get_yticklabels()]
 
-    nyq = ctrl.ctf_2d.envelope.nyquist
+    # Use the frequency-grid Nyquist (0.5 / pixel_size), which is what the CTF
+    # imshow extent is set to. envelope.nyquist folds in the detector binning
+    # factor and would misplace these labels for the super-resolution detector.
+    nyq = ctrl.nyquist
     size = ctrl.image_size
     xpos = [(tick + nyq) / (2 * nyq) * size for tick in xticks]
     ypos = [(tick + nyq) / (2 * nyq) * size for tick in yticks]
@@ -243,12 +246,6 @@ def zoom_2d_ctf(ctrl) -> None:
     Zoom on 2D CTF.
     """
     if ctrl.ui.plot_tabs.currentIndex() == 1:
-        ctrl.ui.canvas_2d.axes[1].set_xlim(
-            -ctrl.ui.freq_scale_2d.value(), ctrl.ui.freq_scale_2d.value()
-        )
-        ctrl.ui.canvas_2d.axes[1].set_ylim(
-            -ctrl.ui.freq_scale_2d.value(), ctrl.ui.freq_scale_2d.value()
-        )
         ctrl.ui.canvas_2d.axes[1].set_xlim(
             -ctrl.ui.freq_scale_2d.value(), ctrl.ui.freq_scale_2d.value()
         )

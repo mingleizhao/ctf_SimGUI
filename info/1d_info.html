@@ -1,4 +1,4 @@
-<div style="font-weight:normal; font-family: Arial, sans-serif; font-size:14px;">
+<div style="font-weight:normal; font-family: Arial, sans-serif; font-size:16px;">
 
     <!--–––––––––––––––––––––––––––––––––––––-->
     <!-- NOTES section: -->
@@ -20,17 +20,17 @@
     <!-- EQUATIONS USED section: -->
     <!--–––––––––––––––––––––––––––––––––––––-->
     <div>
-        <b>Equations used:</b><br>
-        <pre style="font-family: Menlo, Monaco, Consolas, 'Courier New', monospace; margin:0;">
-1. λ = h / √[ 2 · mₑ · eV · (1 + eV / (2 · mₑ · c²)) ]  
-2. γ(f) = -(π / 2) · C<sub>s</sub> · λ³ · f⁴ + π · d<sub>f</sub> · λ · f² + p  
-3. f<sub>s</sub> = C<sub>c</sub> · √((ΔV / V)² + (2ΔI / I)² + (ΔE / eV)²)  
-4. E<sub>T</sub>(f) = exp(–(π² · λ² · f<sub>s</sub>² · f⁴) / 2)  
-5. E<sub>S</sub>(f) = exp(–((π · eₐ / λ)² · (C<sub>s</sub> · λ³ · f³ + d<sub>f</sub> · λ · f)²))  
-6. E<sub>D</sub>(f) = DQE(f / Nyquist) / max(DQE)  
-7. E<sub>total</sub>(f) = E<sub>T</sub>(f) · E<sub>S</sub>(f) · E<sub>D</sub>(f)  
-8. CTF(f) = –sin(γ(f) + arcsin(A<sub>c</sub>)) · E<sub>total</sub>(f) 
-    </pre>
+        <b>Equations used:</b>
+        <table cellspacing="4" cellpadding="0">
+            <tr><td valign="middle">1.&nbsp;</td><td valign="middle"><img src="{IMG_DIR}/wavelength.png" width="278" height="40"></td></tr>
+            <tr><td valign="middle">2.&nbsp;</td><td valign="middle"><img src="{IMG_DIR}/gamma.png" width="266" height="40"></td></tr>
+            <tr><td valign="middle">3.&nbsp;</td><td valign="middle"><img src="{IMG_DIR}/fs.png" width="346" height="40"></td></tr>
+            <tr><td valign="middle">4.&nbsp;</td><td valign="middle"><img src="{IMG_DIR}/env_temporal.png" width="186" height="40"></td></tr>
+            <tr><td valign="middle">5.&nbsp;</td><td valign="middle"><img src="{IMG_DIR}/env_spatial.png" width="316" height="40"></td></tr>
+            <tr><td valign="middle">6.&nbsp;</td><td valign="middle"><img src="{IMG_DIR}/env_detector.png" width="311" height="40"></td></tr>
+            <tr><td valign="middle">7.&nbsp;</td><td valign="middle"><img src="{IMG_DIR}/env_total.png" width="250" height="40"></td></tr>
+            <tr><td valign="middle">8.&nbsp;</td><td valign="middle"><img src="{IMG_DIR}/ctf.png" width="352" height="40"></td></tr>
+        </table>
     </div>
 
     <!--–––––––––––––––––––––––––––––––––––––-->
