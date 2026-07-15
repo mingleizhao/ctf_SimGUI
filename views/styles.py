@@ -22,6 +22,11 @@ __all__ = [
 # internal scale value, call init_ui_scale() after QApplication exists
 _scale = 1.0
 
+# UChicago-maroon accent pair for knobs, highlights, and buttons. White text on
+# either shade stays legible, so it renders well in both light and dark mode.
+ACCENT = "#A4343A"  # maroon — hover / selected / active / indicators
+ACCENT_LIGHT = "#C56B72"  # lighter maroon — resting fill
+
 
 def get_ui_scale() -> float:
     """Getter function"""
@@ -38,6 +43,13 @@ def _px(value: float) -> str:
     """Return a scaled pixel string (e.g. '12px')."""
     size = max(int(value * _scale), 1)
     return f"{size}px"
+
+
+def _icon(name: str) -> str:
+    """Absolute, forward-slash path to a bundled indicator icon for QSS url()."""
+    from utils.resources import resource_path
+
+    return resource_path(f"assets/{name}").replace("\\", "/")
 
 
 def labeled_slider_style() -> str:
@@ -59,12 +71,12 @@ def qslider_style() -> str:
 QSlider::handle:horizontal {{
     width: {6 * r}px;
     height: {6 * r}px;
-    background-color: lightblue;
+    background-color: {ACCENT_LIGHT};
     border-radius: {3 * r}px;
     margin: -{2 * r}px 0px;
 }}
 QSlider::handle:hover {{
-    background-color: #2980b9;
+    background-color: {ACCENT};
 }}
 QSlider::groove:horizontal {{
     height: {2 * r}px;
@@ -128,31 +140,35 @@ QTabBar::tab {{
     border: 1px solid #4A4A4A;
 }}
 QTabBar::tab:hover {{
-    background: lightblue;
+    background: {ACCENT_LIGHT};
+    color: white;
 }}
 QTabBar::tab:selected {{
-    background: #2980b9;
+    background: {ACCENT};
+    color: white;
 }}
 """
 
 
 def button_style() -> str:
-    """Stylesheet for blue QPushButton."""
+    """Stylesheet for the maroon accent QPushButton."""
     return f"""
 QPushButton {{
     border-radius: {_px(6)};
     padding: {_px(4)} {_px(10)};
-    background-color: lightblue;
+    background-color: {ACCENT_LIGHT};
+    color: white;
     font-weight: bold;
 }}
 QPushButton:hover {{
-    background-color: #2980b9;
+    background-color: {ACCENT};
+    color: white;
 }}
 """
 
 
 def default_button_style() -> str:
-    """Stylesheet for default QPushButton."""
+    """Stylesheet for the neutral (outline) QPushButton with a maroon hover."""
     return f"""
 QPushButton {{
     border: 1px solid #4A4A4A;
@@ -160,7 +176,8 @@ QPushButton {{
     padding: {_px(2)} {_px(10)};
 }}
 QPushButton:hover {{
-    background: #4A4A4A;
+    background: {ACCENT};
+    color: white;
 }}
 """
 
@@ -170,17 +187,17 @@ def info_button_style() -> str:
     return f"""
 QPushButton {{
     border-radius: {_px(4)};
-    background-color: lightblue;
+    background-color: {ACCENT_LIGHT};
     color: white;
     font-weight: bold;
     font-family: "Georgia", "Times New Roman", serif;
     font-style: italic;
 }}
 QPushButton:hover {{
-    background-color: #2980b9;
+    background-color: {ACCENT};
 }}
 QPushButton:checked {{
-    background-color: #3498db;
+    background-color: {ACCENT};
     color: white;
 }}
 """
@@ -214,11 +231,13 @@ QScrollBar::add-line, QScrollBar::sub-line {{
 
 
 def check_box_style() -> str:
-    """Stylesheet for QCheckBox."""
+    """Stylesheet for QCheckBox with a maroon check-mark indicator."""
     return f"""
 QCheckBox {{
     margin: 0px;
-    padding: 0px;
+    /* right padding compensates Qt's size hint, which only reserves the native
+       indicator width and would otherwise clip the end of the label. */
+    padding: 0px {_px(8)} 0px 0px;
     spacing: {_px(6)};          /* distance between indicator and text */
 }}
 QCheckBox::indicator {{
@@ -227,15 +246,21 @@ QCheckBox::indicator {{
     width: {_px(18)};
     height: {_px(18)};
 }}
+QCheckBox::indicator:unchecked {{
+    image: url({_icon('checkbox_unchecked.png')});
+}}
+QCheckBox::indicator:checked {{
+    image: url({_icon('checkbox_checked.png')});
+}}
 """
 
 
 def radio_box_style() -> str:
-    """Stylesheet for QRadioButton."""
+    """Stylesheet for QRadioButton with a maroon indicator."""
     return f"""
 QRadioButton {{
     margin: 0px;
-    padding: 0px;
+    padding: 0px {_px(8)} 0px 0px;   /* reserve width so the label isn't clipped */
     spacing: {_px(6)};          /* distance between indicator and text */
 }}
 QRadioButton::indicator {{
@@ -243,6 +268,12 @@ QRadioButton::indicator {{
     padding: 0px;
     width: {_px(18)};
     height: {_px(18)};
+}}
+QRadioButton::indicator:unchecked {{
+    image: url({_icon('radio_unchecked.png')});
+}}
+QRadioButton::indicator:checked {{
+    image: url({_icon('radio_checked.png')});
 }}
 """
 
@@ -263,6 +294,16 @@ QComboBox {{
 QComboBox QAbstractItemView {{
     min-width: {_px(240)};
     max-width: {_px(320)};
+    outline: none;
+    selection-background-color: {ACCENT};
+    selection-color: white;
+}}
+QComboBox QAbstractItemView::item {{
+    padding: {_px(2)} {_px(6)};
+}}
+QComboBox QAbstractItemView::item:hover {{
+    background-color: {ACCENT_LIGHT};
+    color: white;
 }}
 """
 

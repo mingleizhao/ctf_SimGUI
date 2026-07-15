@@ -49,7 +49,7 @@ The GUI consists of five interactive tabs, each focusing on a key aspect of CTF 
    git clone https://github.com/mingleizhao/ctf_SimGUI.git
    cd ctf_SimGUI
    ```
-2. **Install Miniconda**:
+2. **Install Miniconda** *(optional — skip if you already have Conda/Miniconda/Anaconda installed)*:
    ```bash
    curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
    ```

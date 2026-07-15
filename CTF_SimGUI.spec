@@ -8,6 +8,7 @@ a = Analysis(
     datas=[
         ('info', 'info'),
         ('sample_images', 'sample_images'),
+        ('assets', 'assets'),
     ],
     hiddenimports=[],
     hookspath=[],

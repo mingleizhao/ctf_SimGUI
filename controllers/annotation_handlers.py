@@ -150,7 +150,7 @@ def annotate_image_original(ctrl, event):
         return
     val = ctrl.image_data[_clamp_index(y, ctrl.image_size), _clamp_index(x, ctrl.image_size)]
     ctrl.annotation_image_original.xy = (x, y)
-    ctrl.annotation_image_original.set_text(f"{val:.2f}")
+    ctrl.annotation_image_original.set_text(f"Int: {val:.2f}")
     ctrl.annotation_image_original.set_visible(True)
     ctrl.ui.canvas_image.draw_idle()
 
@@ -178,7 +178,7 @@ def annotate_image_convolved(ctrl, event):
         return
     val = ctrl.scaled_convolved[_clamp_index(y, ctrl.image_size), _clamp_index(x, ctrl.image_size)]
     ctrl.annotation_image_convolved.xy = (x, y)
-    ctrl.annotation_image_convolved.set_text(f"{val:.2f}")
+    ctrl.annotation_image_convolved.set_text(f"Int: {val:.2f}")
     ctrl.annotation_image_convolved.set_visible(True)
     ctrl.ui.canvas_image.draw_idle()
 
