@@ -1,11 +1,13 @@
 import numpy as np
 from matplotlib.colors import Normalize
+from PyQt5.QtCore import QUrl
 from PyQt5.QtWidgets import QMessageBox
 
 from models.ctf_1d import CTF1D
 from models.ctf_2d import CTF2D
 from models.detector import ALL_DETECTORS
 from views.main_window import MainWindow
+from views.ui_utils import show_html_info
 from utils.file_io import prompt_and_save_figure, prompt_and_save_csv
 from utils.resources import resource_path
 from utils.ctf_parameter_utils import apply_ctf_parameter, get_ctf_wrap_func
@@ -369,10 +371,17 @@ class AppController:
         # packaged with PyInstaller (data files live under sys._MEIPASS).
         full_path = resource_path(filepath)
 
+        # {IMG_DIR} in the HTML is a placeholder for the pre-rendered equation
+        # images; resolve it to a file:// URL so QMessageBox's rich text can load
+        # them both from source and when packaged with PyInstaller.
+        img_dir = QUrl.fromLocalFile(resource_path("info/equations")).toString()
+
         try:
             with open(full_path, "r", encoding="utf-8") as fh:
                 html_text = fh.read()
-            # Show the HTML content in a QMessageBox
-            QMessageBox.information(self.window, "", html_text)
+            html_text = html_text.replace("{IMG_DIR}", img_dir)
+            # Scrollable, resizable dialog with a light background so the content
+            # is never clipped and stays legible in dark mode.
+            show_html_info(self.window, html_text, title="Info")
         except Exception as e:
             QMessageBox.critical(self.window, "Help Load Error", f"Could not load help text:\n{e}")
